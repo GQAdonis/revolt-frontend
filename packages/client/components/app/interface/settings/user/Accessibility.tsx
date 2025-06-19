@@ -1,11 +1,11 @@
-import { useTranslation } from "@revolt/i18n";
+import { Trans } from "@lingui-solid/solid/macro";
+
 import {
-    CategoryButton,
-    CategoryButtonGroup,
-    Checkbox,
-    Column,
-    FormGroup,
-    iconSize,
+  CategoryButton,
+  CategoryButtonGroup,
+  Checkbox,
+  Column,
+  iconSize,
 } from "@revolt/ui";
 
 import MdAnimation from "@material-design-icons/svg/outlined/animation.svg?component-solid";
@@ -14,22 +14,25 @@ import MdAnimation from "@material-design-icons/svg/outlined/animation.svg?compo
  * Accessibility settings page
  */
 export default function Accessibility() {
-    const t = useTranslation();
-
-    return (
-        <Column gap="lg">
-            <CategoryButtonGroup>
-                <FormGroup>
-                    <CategoryButton
-                        action={<Checkbox value onChange={(value) => void value} />}
-                        onClick={() => void 0}
-                        icon={<MdAnimation {...iconSize(22)} />}
-                        description={t("app.settings.pages.accessibility.descriptions.reduced_motion")}
-                    >
-                        {t("app.settings.pages.accessibility.reduced_motion")}
-                    </CategoryButton>
-                </FormGroup>
-            </CategoryButtonGroup>
-        </Column>
-    );
+  return (
+    <Column gap="lg">
+      {/* <CategoryButtonGroup>
+        <FormGroup>
+          <CategoryButton
+            action={<Checkbox value onChange={(value) => void value} />}
+            onClick={() => void 0}
+            icon={<MdAnimation {...iconSize(22)} />}
+            description={
+              <Trans>
+                If this is enabled, animations and motion effects won't play or
+                will be less intense.
+              </Trans>
+            }
+          >
+            <Trans>Reduced Motion</Trans>
+          </CategoryButton>
+        </FormGroup>
+      </CategoryButtonGroup> */}
+    </Column>
+  );
 }

@@ -1,30 +1,32 @@
-import { getController } from "@revolt/common";
-import { createEffect, createMemo, createResource, createSignal, onMount, Show, Suspense } from "solid-js";
-import { useParams } from "@solidjs/router";
-import { Modal, Preloader } from "@revolt/ui";
-import { styled } from "styled-system/jsx";
 import { BiRegularCheck } from "solid-icons/bi";
-import { useTranslation } from "@revolt/i18n";
+import { Show, Suspense, createMemo, createResource } from "solid-js";
 
-const Centre = styled('div', {
+import { useParams } from "@solidjs/router";
+import { styled } from "styled-system/jsx";
+
+import { Modal, Preloader } from "@revolt/ui";
+import { useApi } from "@revolt/client";
+
+const Centre = styled("div", {
   base: {
-    display: 'flex',
-    justifyContent: 'center'
-  }
+    display: "flex",
+    justifyContent: "center",
+  },
 });
 
-const i18nScope = 'app.settings.pages.account.delete';
-
 export function ConfirmDelete() {
-  const t = useTranslation();
+  const api = useApi();
   const params = useParams<{ token: string }>();
-  const clientController = getController("client");
-  const [deleted] = createResource<boolean | null>( async () => {
-    try {
-      await clientController.api.put("/auth/account/delete", { token: params.token });
-      return true;
-    } catch (e) {
-      /*
+
+  const [deleted] = createResource<boolean | null>(
+    async () => {
+      try {
+        await api.put("/auth/account/delete", {
+          token: params.token,
+        });
+        return true;
+      } catch (e) {
+        /*
       createResource cannot handle thrown errors without ErrorBoundary,
       so we wrangle states manually
 
@@ -32,43 +34,39 @@ export function ConfirmDelete() {
       true - deleted
       false - initial
        */
-      return null;
-    }
-  }, {
-    initialValue: false
-  })
+        return null;
+      }
+    },
+    {
+      initialValue: false,
+    },
+  );
 
   const title = createMemo(() => {
-    if (deleted() === null) return t(`${i18nScope}.error.title`);
+    if (deleted() === null) return "missing i18n";
 
-    return deleted() ? t(`${i18nScope}.success.title`) : t(`${i18nScope}.loading.title`);
+    return deleted() ? "missing i18n" : "missing i18n";
   });
 
   const description = createMemo(() => {
-    if (deleted() === null) return t(`${i18nScope}.error.description`);
+    if (deleted() === null) return "missing i18n";
 
-    if (deleted()) return (
-      <>
-        {t(`${i18nScope}.success.description.header`)}
-        <br />
-        {t(`${i18nScope}.success.description.paragraph_first`)}{" "}
-        <a href="mailto:contact@revolt.chat">
-          {t(`${i18nScope}.success.description.support`)}
-        </a>{" "}
-        {t(`${i18nScope}.success.description.paragraph_second`)}
-      </>
-    )
+    if (deleted())
+      return (
+        <>
+          {"missing i18n"}
+          <br />
+          {"missing i18n"}{" "}
+          <a href="mailto:contact@revolt.chat">{"missing i18n"}</a>{" "}
+          {"missing i18n"}
+        </>
+      );
 
-    return t(`${i18nScope}.loading.description`)
-  })
+    return "missing i18n";
+  });
 
   return (
-    <Modal
-      show
-      title={title()}
-      description={description()}
-      nonDismissable
-    >
+    <Modal show title={title()} description={description()} nonDismissable>
       <Suspense fallback={<Preloader type="ring" />}>
         <Show when={deleted()} keyed>
           <Centre>
@@ -77,5 +75,5 @@ export function ConfirmDelete() {
         </Show>
       </Suspense>
     </Modal>
-  )
+  );
 }

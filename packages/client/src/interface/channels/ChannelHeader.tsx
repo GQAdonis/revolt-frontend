@@ -1,65 +1,94 @@
-import {
-  BiRegularAt,
-  BiRegularHash,
-  BiSolidCog,
-  BiSolidGroup,
-  BiSolidNotepad,
-} from "solid-icons/bi";
-import { Match, Show, Switch } from "solid-js";
+import { BiRegularAt, BiRegularHash, BiSolidNotepad } from "solid-icons/bi";
+import { Accessor, Match, Setter, Show, Switch, createSignal } from "solid-js";
 
+import { Trans, useLingui } from "@lingui-solid/solid/macro";
 import { Channel } from "revolt.js";
+import { css } from "styled-system/css";
+import { styled } from "styled-system/jsx";
 
-import { useTranslation } from "@revolt/i18n";
+import { useClient } from "@revolt/client";
 import { TextWithEmoji } from "@revolt/markdown";
-import { modalController } from "@revolt/modal";
-import { state } from "@revolt/state";
+import { useModals } from "@revolt/modal";
+import { useVoice } from "@revolt/rtc";
+import { useState } from "@revolt/state";
 import { LAYOUT_SECTIONS } from "@revolt/state/stores/Layout";
 import {
   Button,
   NonBreakingText,
   OverflowingText,
   Spacer,
-  typography,
-  Typography,
   UserStatus,
+  typography,
 } from "@revolt/ui";
 
+import MdCall from "@material-design-icons/svg/outlined/call.svg?component-solid";
+import MdGroup from "@material-design-icons/svg/outlined/group.svg?component-solid";
+import MdPersonAdd from "@material-design-icons/svg/outlined/person_add.svg?component-solid";
+import MdSettings from "@material-design-icons/svg/outlined/settings.svg?component-solid";
+
+import MdKeep from "../../svg/keep.svg?component-solid";
 import { HeaderIcon } from "../common/CommonHeader";
-import { styled } from "styled-system/jsx";
+
+import { SidebarState } from "./text/TextChannel";
 
 interface Props {
   /**
    * Channel to render header for
    */
   channel: Channel;
+
+  /**
+   * Sidebar state
+   */
+  sidebarState: Accessor<SidebarState>;
+
+  /**
+   * Set sidebar state
+   */
+  setSidebarState: Setter<SidebarState>;
 }
 
 /**
  * Common channel header component
  */
 export function ChannelHeader(props: Props) {
-  const t = useTranslation();
+  const { openModal } = useModals();
+  const client = useClient();
+  const { t } = useLingui();
+  const state = useState();
+  const rtc = useVoice();
 
   /**
-   * Open channel information modal
+   * Join voice call
    */
-  function openChannelInfo() {
-    modalController.push({
-      type: "channel_info",
-      channel: props.channel,
-    });
+  async function joinCall() {
+    const [h, v] = client()!.authenticationHeader;
+
+    const { token, url } = await fetch(
+      client()!.api.config.baseURL + `/channels/${props.channel.id}/join_call`,
+      {
+        method: "POST",
+        headers: {
+          [h]: v,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ node: "worldwide" }),
+      },
+    ).then((r) => r.json());
+
+    if (token && url) {
+      rtc.connect(url, token);
+    }
   }
 
-  /**
-   * Open channel settings
-   */
-  function openChannelSettings() {
-    modalController.push({
-      type: "settings",
-      config: "channel",
-      context: props.channel,
-    });
-  }
+  const searchValue = () => {
+    const state = props.sidebarState();
+    if (state.state === "search") {
+      return state.query;
+    } else {
+      return "";
+    }
+  };
 
   return (
     <>
@@ -76,12 +105,32 @@ export function ChannelHeader(props: Props) {
           </HeaderIcon>
           <NonBreakingText
             class={typography({ class: "title", size: "medium" })}
+            onClick={() =>
+              openModal({
+                type: "channel_info",
+                channel: props.channel,
+              })
+            }
           >
             <TextWithEmoji content={props.channel.name!} />
           </NonBreakingText>
           <Show when={props.channel.description}>
             <Divider />
-            <DescriptionLink onClick={openChannelInfo}>
+            <a
+              class={descriptionLink}
+              onClick={() =>
+                openModal({
+                  type: "channel_info",
+                  channel: props.channel,
+                })
+              }
+              use:floating={{
+                tooltip: {
+                  placement: "bottom",
+                  content: t`Click to show full description`,
+                },
+              }}
+            >
               <OverflowingText
                 class={typography({ class: "title", size: "small" })}
               >
@@ -89,7 +138,7 @@ export function ChannelHeader(props: Props) {
                   content={props.channel.description?.split("\n").shift()}
                 />
               </OverflowingText>
-            </DescriptionLink>
+            </a>
           </Show>
         </Match>
         <Match when={props.channel.type === "DirectMessage"}>
@@ -103,32 +152,155 @@ export function ChannelHeader(props: Props) {
           <HeaderIcon>
             <BiSolidNotepad size={24} />
           </HeaderIcon>
-          {t("app.navigation.tabs.saved")}
+          <Trans>Saved Notes</Trans>
         </Match>
       </Switch>
 
       <Spacer />
 
       <Show
+        when={import.meta.env.DEV && props.channel.type !== "SavedMessages"}
+      >
+        <Button
+          variant="plain"
+          size="icon"
+          onPress={joinCall}
+          use:floating={{
+            tooltip: {
+              placement: "bottom",
+              content: t`Join call`,
+            },
+          }}
+        >
+          <MdCall />
+        </Button>
+      </Show>
+
+      <Show
         when={
-          props.channel.type === "Group" ||
+          (props.channel.type === "Group" || props.channel.serverId) &&
           props.channel.orPermission("ManageChannel", "ManagePermissions")
         }
       >
-        <Button variant="plain" size="fluid" onPress={openChannelSettings}>
-          <BiSolidCog size={24} />
+        <Button
+          variant="plain"
+          size="icon"
+          onPress={() =>
+            openModal({
+              type: "settings",
+              config: "channel",
+              context: props.channel,
+            })
+          }
+          use:floating={{
+            tooltip: {
+              placement: "bottom",
+              content: t`Channel Settings`,
+            },
+          }}
+        >
+          <MdSettings />
+        </Button>
+      </Show>
+
+      <Show when={props.channel.type === "Group"}>
+        <Button
+          variant="plain"
+          size="icon"
+          onPress={() =>
+            openModal({
+              type: "add_members_to_group",
+              group: props.channel,
+              client: client(),
+            })
+          }
+          use:floating={{
+            tooltip: {
+              placement: "bottom",
+              content: t`Add friends to group`,
+            },
+          }}
+        >
+          <MdPersonAdd />
         </Button>
       </Show>
 
       <Button
         variant="plain"
-        size="fluid"
+        size="icon"
+        use:floating={{
+          tooltip: {
+            placement: "bottom",
+            content: t`View pinned messages`,
+          },
+        }}
         onPress={() =>
-          state.layout.toggleSectionState(LAYOUT_SECTIONS.MEMBER_SIDEBAR, true)
+          props.sidebarState().state === "pins"
+            ? props.setSidebarState({
+                state: "default",
+              })
+            : props.setSidebarState({
+                state: "pins",
+              })
         }
       >
-        <BiSolidGroup size={24} />
+        <MdKeep />
       </Button>
+
+      <Show when={props.channel.type !== "SavedMessages"}>
+        <Button
+          variant="plain"
+          size="icon"
+          onPress={() => {
+            if (props.sidebarState().state === "default") {
+              state.layout.toggleSectionState(
+                LAYOUT_SECTIONS.MEMBER_SIDEBAR,
+                true,
+              );
+            } else {
+              state.layout.setSectionState(
+                LAYOUT_SECTIONS.MEMBER_SIDEBAR,
+                true,
+                true,
+              );
+
+              props.setSidebarState({
+                state: "default",
+              });
+            }
+          }}
+          use:floating={{
+            tooltip: {
+              placement: "bottom",
+              content: t`View members`,
+            },
+          }}
+        >
+          <MdGroup />
+        </Button>
+      </Show>
+
+      <input
+        class={css({
+          height: "40px",
+          width: "240px",
+          paddingInline: "16px",
+          borderRadius: "var(--borderRadius-full)",
+          background: "var(--md-sys-color-surface-container-high)",
+        })}
+        placeholder="Search messages..."
+        value={searchValue()}
+        onChange={(e) =>
+          e.currentTarget.value
+            ? props.setSidebarState({
+                state: "search",
+                query: e.currentTarget.value,
+              })
+            : props.setSidebarState({
+                state: "default",
+              })
+        }
+      />
     </>
   );
 }
@@ -148,8 +320,6 @@ const Divider = styled("div", {
 /**
  * Link for the description
  */
-const DescriptionLink = styled("a", {
-  base: {
-    minWidth: 0,
-  },
+const descriptionLink = css({
+  minWidth: 0,
 });

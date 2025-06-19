@@ -1,17 +1,21 @@
-import { JSX, Show } from "solid-js";
+import { JSX, Match, Show, Switch } from "solid-js";
 
+import { Trans } from "@lingui-solid/solid/macro";
+import { useNavigate } from "@solidjs/router";
 import { Channel, Message, ServerMember, User } from "revolt.js";
 
 import { useClient } from "@revolt/client";
-import { getController } from "@revolt/common";
-import { useTranslation } from "@revolt/i18n";
+import { useModals } from "@revolt/modal";
+import { useState } from "@revolt/state";
 
 import MdAddCircleOutline from "@material-design-icons/svg/outlined/add_circle_outline.svg?component-solid";
 import MdAdminPanelSettings from "@material-design-icons/svg/outlined/admin_panel_settings.svg?component-solid";
 import MdAlternateEmail from "@material-design-icons/svg/outlined/alternate_email.svg?component-solid";
+import MdAssignmentInd from "@material-design-icons/svg/outlined/assignment_ind.svg?component-solid";
 import MdBadge from "@material-design-icons/svg/outlined/badge.svg?component-solid";
 import MdBlock from "@material-design-icons/svg/outlined/block.svg?component-solid";
 import MdCancel from "@material-design-icons/svg/outlined/cancel.svg?component-solid";
+import MdChat from "@material-design-icons/svg/outlined/chat.svg?component-solid";
 import MdClose from "@material-design-icons/svg/outlined/close.svg?component-solid";
 import MdDoNotDisturbOn from "@material-design-icons/svg/outlined/do_not_disturb_on.svg?component-solid";
 import MdFace from "@material-design-icons/svg/outlined/face.svg?component-solid";
@@ -36,14 +40,23 @@ export function UserContextMenu(props: {
 }) {
   // TODO: if we take serverId instead, we could dynamically fetch server member here
   // same for the floating menu I guess?
+  const state = useState();
   const client = useClient();
-  const t = useTranslation();
+  const navigate = useNavigate();
+  const { openModal } = useModals();
+
+  /**
+   * Open direct message channel
+   */
+  function openDm() {
+    props.user.openDM().then((channel) => navigate(channel.url));
+  }
 
   /**
    * Delete channel
    */
   function closeDm() {
-    getController("modal").push({
+    openModal({
       type: "delete_channel",
       channel: props.channel!,
     });
@@ -53,14 +66,14 @@ export function UserContextMenu(props: {
    * Mention the user
    */
   function mention() {
-    getController("state").draft.insertText(props.user.toString());
+    state.draft.insertText(props.user.toString());
   }
 
   /**
    * Edit server identity for user
    */
   function editIdentity() {
-    getController("modal").push({
+    openModal({
       type: "server_identity",
       member: props.member!,
     });
@@ -70,7 +83,7 @@ export function UserContextMenu(props: {
    * Report the user
    */
   function reportUser() {
-    getController("modal").push({
+    openModal({
       type: "report_content",
       target: props.user!,
       client: client(),
@@ -79,10 +92,20 @@ export function UserContextMenu(props: {
   }
 
   /**
+   * Edit this user's roles
+   */
+  function editRoles() {
+    openModal({
+      type: "user_profile_roles",
+      member: props.member!,
+    });
+  }
+
+  /**
    * Kick the member
    */
   function kickMember() {
-    getController("modal").push({
+    openModal({
       type: "kick_member",
       member: props.member!,
     });
@@ -92,7 +115,7 @@ export function UserContextMenu(props: {
    * Ban the member
    */
   function banMember() {
-    getController("modal").push({
+    openModal({
       type: "ban_member",
       member: props.member!,
     });
@@ -144,22 +167,28 @@ export function UserContextMenu(props: {
   }
 
   return (
-    <ContextMenu>
+    <ContextMenu class="UserContextMenu">
       <Show when={props.channel?.type === "DirectMessage"}>
         <ContextMenuButton icon={MdClose} onClick={closeDm}>
-          {t("app.context_menu.close_dm")}
+          <Trans>Close chat</Trans>
         </ContextMenuButton>
       </Show>
       <Show when={props.channel?.type === "TextChannel"}>
         <ContextMenuButton icon={MdAlternateEmail} onClick={mention}>
-          {t("app.context_menu.mention")}
+          <Trans>Mention</Trans>
+        </ContextMenuButton>
+      </Show>
+      <Show when={props.user.relationship === "Friend"}>
+        <ContextMenuButton icon={MdChat} onClick={openDm}>
+          <Trans>Message</Trans>
         </ContextMenuButton>
       </Show>
       <Show
         when={
-          props.channel &&
-          (props.channel.type === "DirectMessage" ||
-            props.channel.type === "TextChannel")
+          props.user.relationship === "Friend" ||
+          (props.channel &&
+            (props.channel.type === "DirectMessage" ||
+              props.channel.type === "TextChannel"))
         }
       >
         <ContextMenuDivider />
@@ -177,14 +206,25 @@ export function UserContextMenu(props: {
         }
       >
         <ContextMenuButton icon={MdFace} onClick={editIdentity}>
-          {t(
-            `app.context_menu.${
-              props.user.self ? "edit_your_identity" : "edit_identity"
-            }`,
-          )}
+          <Switch fallback={<Trans>Edit identity</Trans>}>
+            <Match when={props.user.self}>
+              <Trans>Edit your identity</Trans>
+            </Match>
+          </Switch>
         </ContextMenuButton>
       </Show>
       <Show when={props.member}>
+        <Show
+          when={
+            props.member?.server?.owner?.self ||
+            (props.member?.server?.havePermission("AssignRoles") &&
+              props.member.inferiorTo(props.member.server.member!))
+          }
+        >
+          <ContextMenuButton icon={MdAssignmentInd} onClick={editRoles}>
+            <Trans>Edit roles</Trans>
+          </ContextMenuButton>
+        </Show>
         {/** TODO: #287 timeout users */}
         <Show
           when={
@@ -198,7 +238,7 @@ export function UserContextMenu(props: {
             onClick={kickMember}
             destructive
           >
-            {t("app.context_menu.kick_member")}
+            <Trans>Kick member</Trans>
           </ContextMenuButton>
         </Show>
         <Show
@@ -213,7 +253,7 @@ export function UserContextMenu(props: {
             onClick={banMember}
             destructive
           >
-            {t("app.context_menu.ban_member")}
+            <Trans>Ban member</Trans>
           </ContextMenuButton>
         </Show>
       </Show>
@@ -223,52 +263,52 @@ export function UserContextMenu(props: {
 
       <Show when={!props.user.self}>
         <ContextMenuButton icon={MdReport} onClick={reportUser} destructive>
-          {t("app.context_menu.report_user")}
+          <Trans>Report user</Trans>
         </ContextMenuButton>
         {/* TODO: #286 show profile / message */}
         <Show when={props.user.relationship === "None" && !props.user.bot}>
           <ContextMenuButton icon={MdPersonAddAlt} onClick={addFriend}>
-            {t("app.context_menu.add_friend")}
+            <Trans>Add friend</Trans>
           </ContextMenuButton>
         </Show>
         <Show when={props.user.relationship === "Friend"}>
           <ContextMenuButton icon={MdPersonRemove} onClick={removeFriend}>
-            {t("app.context_menu.remove_friend")}
+            <Trans>Remove friend</Trans>
           </ContextMenuButton>
         </Show>
         <Show when={props.user.relationship === "Incoming"}>
           <ContextMenuButton icon={MdPersonAddAlt} onClick={addFriend}>
-            {t("app.context_menu.accept_friend")}
+            <Trans>Accept friend request</Trans>
           </ContextMenuButton>
         </Show>
         <Show when={props.user.relationship === "Incoming"}>
           <ContextMenuButton icon={MdCancel} onClick={removeFriend}>
-            {t("app.context_menu.reject_friend")}
+            <Trans>Reject friend request</Trans>
           </ContextMenuButton>
         </Show>
         <Show when={props.user.relationship === "Outgoing"}>
           <ContextMenuButton icon={MdCancel} onClick={removeFriend}>
-            {t("app.context_menu.cancel_friend")}
+            <Trans>Cancel friend request</Trans>
           </ContextMenuButton>
         </Show>
         <Show when={props.user.relationship !== "Blocked"}>
           <ContextMenuButton icon={MdBlock} onClick={blockUser}>
-            {t("app.context_menu.block_user")}
+            <Trans>Block user</Trans>
           </ContextMenuButton>
         </Show>
         <Show when={props.user.relationship === "Blocked"}>
           <ContextMenuButton icon={MdAddCircleOutline} onClick={unblockUser}>
-            {t("app.context_menu.unblock_user")}
+            <Trans>Unblock user</Trans>
           </ContextMenuButton>
         </Show>
         <ContextMenuDivider />
       </Show>
 
       <ContextMenuButton icon={MdAdminPanelSettings} onClick={openAdminPanel}>
-        Admin Panel
+        <Trans>Admin Panel</Trans>
       </ContextMenuButton>
       <ContextMenuButton icon={MdBadge} onClick={copyId}>
-        {t("app.context_menu.copy_uid")}
+        <Trans>Copy user ID</Trans>
       </ContextMenuButton>
     </ContextMenu>
   );
@@ -306,5 +346,7 @@ export function floatingUserMenus(
 }
 
 export function floatingUserMenusFromMessage(message: Message) {
-  return floatingUserMenus(message.author!, message.member, message);
+  return message.author
+    ? floatingUserMenus(message.author!, message.member, message)
+    : {}; // TODO: webhook menu
 }

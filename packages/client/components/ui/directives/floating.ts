@@ -10,7 +10,7 @@ export type FloatingElement = {
 };
 
 const [floatingElements, setFloatingElements] = createSignal<FloatingElement[]>(
-  []
+  [],
 );
 
 export { floatingElements };
@@ -29,7 +29,7 @@ export function registerFloatingElement(element: FloatingElement) {
  */
 export function unregisterFloatingElement(element: HTMLElement) {
   setFloatingElements((elements) =>
-    elements.filter((entry) => entry.element !== element)
+    elements.filter((entry) => entry.element !== element),
   );
 }
 
@@ -147,7 +147,7 @@ export function floating(element: HTMLElement, accessor: Accessor<Props>) {
   }
 
   if (config.contextMenu) {
-    element.addEventListener("contextmenu", onContextMenu);
+    element.addEventListener(config.contextMenuHandler ?? "contextmenu", onContextMenu);
     // TODO: iOS events for touch
   }
 
@@ -164,7 +164,7 @@ export function floating(element: HTMLElement, accessor: Accessor<Props>) {
     }
 
     if (config.contextMenu) {
-      element.removeEventListener("contextmenu", onContextMenu);
+      element.removeEventListener(config.contextMenuHandler ?? "contextmenu", onContextMenu);
     }
   });
 }

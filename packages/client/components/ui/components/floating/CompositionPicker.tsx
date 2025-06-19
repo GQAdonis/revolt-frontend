@@ -1,13 +1,13 @@
 import { useFloating } from "solid-floating-ui";
 import { For, JSX, Ref, Show, createEffect, createSignal, on } from "solid-js";
 import { Portal } from "solid-js/web";
-import { styled } from "styled-system/jsx";
-
-import { autoUpdate, flip, offset, shift } from "@floating-ui/dom";
 import { Motion, Presence } from "solid-motionone";
 
-import { scrollable } from "../../directives";
-import { Column, Input } from "../design";
+import { autoUpdate, flip, offset, shift } from "@floating-ui/dom";
+import { styled } from "styled-system/jsx";
+
+import { Input } from "../features";
+import { Column } from "../layout";
 
 /**
  * Base element
@@ -125,8 +125,8 @@ export function CompositionPicker(props: Props) {
 
           fetched = true;
         }
-      }
-    )
+      },
+    ),
   );
 
   /**
@@ -136,8 +136,8 @@ export function CompositionPicker(props: Props) {
   function search(query: string) {
     fetch(
       `https://api.gifbox.me/post/search?query=${encodeURIComponent(
-        query
-      )}&limit=25`
+        query,
+      )}&limit=25`,
     )
       .then((x) => x.json())
       .then((x) => x.hits)
@@ -186,7 +186,7 @@ export function CompositionPicker(props: Props) {
                           <a
                             onClick={() =>
                               props.sendGIFMessage(
-                                `https://gifbox.me/view/${entry._id}-${entry.slug}`
+                                `https://gifbox.me/view/${entry._id}-${entry.slug}`,
                               )
                             }
                           >

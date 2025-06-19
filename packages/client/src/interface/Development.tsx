@@ -1,11 +1,13 @@
 /* eslint-disable */
+import { createFormControl, createFormGroup } from "solid-forms";
 import { BiSolidPalette, BiSolidSpeaker } from "solid-icons/bi";
+import { For } from "solid-js";
 
 import { cva } from "styled-system/css";
 import { styled } from "styled-system/jsx";
 
-import { clientController } from "@revolt/client";
-import { modalController } from "@revolt/modal";
+import { useClient } from "@revolt/client";
+import { useModals } from "@revolt/modal";
 import {
   Button,
   CategoryButton,
@@ -14,12 +16,14 @@ import {
   ComboBox,
   Form2,
   OverrideSwitch,
+  Row,
+  Text,
   TextField,
   iconSize,
+  DataTable
 } from "@revolt/ui";
 
 import Face from "@material-design-icons/svg/filled/face.svg?component-solid";
-import { createFormControl, createFormGroup } from "solid-forms";
 
 const NewComponent = styled("div", {
   base: {
@@ -67,15 +71,20 @@ function FormTest() {
 }
 
 export function DevelopmentPage() {
+  const client = useClient();
+  const { openModal } = useModals();
+
   function open() {
-    modalController.push({
-      type: "custom_status",
-      client: clientController.getCurrentClient()!,
+    openModal({
+      type: "channel_toggle_mature",
+      channel: client().channels.find((x) => x.name === "Empty Test Channel")!,
+      // type: "custom_status",
+      // client: clientController.getCurrentClient()!,
     });
   }
 
   function changelog() {
-    modalController.push({
+    openModal({
       type: "changelog",
       posts: [
         {
@@ -99,8 +108,48 @@ export function DevelopmentPage() {
     });
   }
 
+  const manyData = new Array(1000).fill(0).map((_, idx) => idx);
+
   return (
     <Column>
+      <Row align>
+        <Button variant="elevated">Elevated</Button>
+        <Button variant="filled">Filled</Button>
+        <Button variant="tonal">Tonal</Button>
+        <Button variant="outlined">Outlined</Button>
+        <Button variant="text">Text</Button>
+      </Row>
+      <Row align>
+        <Button size="xs" shape="square">xs</Button>
+        <Button size="sm" shape="square">s</Button>
+        <Button size="md" shape="square">md</Button>
+        <Button size="lg" shape="square">lg</Button>
+        <Button size="xl" shape="square">xl</Button>
+      </Row>
+
+      <DataTable
+        header={<Text class="title">Table Title</Text>}
+        columns={["idx", "hello", "2"]}
+        itemCount={manyData.length}
+      >
+        {(page, itemsPerPage) => (
+          <For
+            each={manyData.slice(
+              page * itemsPerPage,
+              page * itemsPerPage + itemsPerPage,
+            )}
+          >
+            {(item) => (
+              <DataTable.Row>
+                <DataTable.Cell>{item}</DataTable.Cell>
+                <DataTable.Cell>rahh</DataTable.Cell>
+                <DataTable.Cell>123</DataTable.Cell>
+              </DataTable.Row>
+            )}
+          </For>
+        )}
+      </DataTable>
+
       <FormTest />
 
       <div
@@ -113,7 +162,6 @@ export function DevelopmentPage() {
       >
         <Face fill="red" {...iconSize(128)} />
       </div>
-      <OverrideSwitch />
 
       <TextField
         variant="outlined"

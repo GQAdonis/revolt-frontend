@@ -1,14 +1,16 @@
 import { Component, Match, Switch, createMemo } from "solid-js";
 
 import { Channel } from "revolt.js";
+import { styled } from "styled-system/jsx";
 
 import { useClient } from "@revolt/client";
 import { TextWithEmoji } from "@revolt/markdown";
 import { Navigate, useParams } from "@revolt/routing";
-import { Header, Typography } from "@revolt/ui";
-import { styled } from "styled-system/jsx";
+import { Demo } from "@revolt/rtc/Demo";
+import { Header } from "@revolt/ui";
 
 import { AgeGate } from "./AgeGate";
+import { ChannelHeader } from "./ChannelHeader";
 import { TextChannel } from "./text/TextChannel";
 
 /**
@@ -60,11 +62,9 @@ export const ChannelPage: Component = () => {
           </Match>
           <Match when={channel()!.type === "VoiceChannel"}>
             <Header placement="primary">
-              <TextWithEmoji content={channel().name!} />
+              <ChannelHeader channel={channel()} />
             </Header>
-            <Typography variant="legacy-modal-title">
-              Legacy voice channels are not supported!
-            </Typography>
+            <Demo />
           </Match>
         </Switch>
       </AgeGate>

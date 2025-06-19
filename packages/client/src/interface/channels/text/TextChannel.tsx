@@ -1,45 +1,51 @@
-import {
-  For,
-  Show,
-  createEffect,
-  createSignal,
-  on,
-  onCleanup,
-  onMount,
-} from "solid-js";
+import { Match, Show, Switch, createEffect, createSignal, on } from "solid-js";
 
+import { cva } from "styled-system/css";
+import { styled } from "styled-system/jsx";
 import { decodeTime, ulid } from "ulid";
 
 import { DraftMessages, Messages } from "@revolt/app";
 import { useClient } from "@revolt/client";
-import { KeybindAction } from "@revolt/keybinds";
+import { Keybind, KeybindAction, createKeybind } from "@revolt/keybinds";
 import { useNavigate, useSmartParams } from "@revolt/routing";
-import { state } from "@revolt/state";
+import { useState } from "@revolt/state";
 import { LAYOUT_SECTIONS } from "@revolt/state/stores/Layout";
 import {
-  Avatar,
   BelowFloatingHeader,
   Header,
-  MessageContainer,
-  MessageReply,
   NewMessages,
+  Text,
   TypingIndicator,
-  Username,
+  main,
 } from "@revolt/ui";
-import { useKeybindActions } from "@revolt/ui/components/context/Keybinds";
 
 import { ChannelHeader } from "../ChannelHeader";
 import { ChannelPageProps } from "../ChannelPage";
 
 import { MessageComposition } from "./Composition";
 import { MemberSidebar } from "./MemberSidebar";
+import { TextSearchSidebar } from "./TextSearchSidebar";
 
-import { styled } from "styled-system/jsx";
+/**
+ * State of the channel sidebar
+ */
+export type SidebarState =
+  | {
+      state: "search";
+      query: string;
+    }
+  | {
+      state: "pins";
+    }
+  | {
+      state: "default";
+    };
 
 /**
  * Channel component
  */
 export function TextChannel(props: ChannelPageProps) {
+  const state = useState();
   const client = useClient();
 
   // Last unread message id
@@ -69,9 +75,9 @@ export function TextChannel(props: ChannelPageProps) {
         setLastId(
           props.channel.unread
             ? (client().channelUnreads.get(id)?.lastMessageId as string)
-            : undefined
-        )
-    )
+            : undefined,
+        ),
+    ),
   );
 
   // Mark channel as read whenever it is marked as unread
@@ -94,38 +100,53 @@ export function TextChannel(props: ChannelPageProps) {
             // TODO: ack on refocus
           }
         }
-      }
-    )
+      },
+    ),
   );
 
-  // Register "jump to latest messages"
-  const keybinds = useKeybindActions();
+  // Register ack/jump latest
+  createKeybind(KeybindAction.CHAT_JUMP_END, () => {
+    // Mark channel as read if not already
+    if (props.channel.unread) {
+      props.channel.ack();
+    }
 
-  function scrollToBottom() {
+    // Clear the last unread id
+    if (lastId()) {
+      setLastId(undefined);
+    }
+
+    // Scroll to the bottom
     jumpToBottomRef?.();
-  }
+  });
 
-  onMount(() =>
-    keybinds.addEventListener(
-      KeybindAction.MessagingScrollToBottom,
-      scrollToBottom
-    )
-  );
+  // Sidebar scroll target
+  let sidebarScrollTargetElement!: HTMLDivElement;
 
-  onCleanup(() =>
-    keybinds.removeEventListener(
-      KeybindAction.MessagingScrollToBottom,
-      scrollToBottom
-    )
+  // Sidebar state
+  const [sidebarState, setSidebarState] = createSignal<SidebarState>({
+    state: "default",
+  });
+
+  // todo: in the future maybe persist per ID?
+  createEffect(
+    on(
+      () => props.channel.id,
+      () => setSidebarState({ state: "default" }),
+    ),
   );
 
   return (
     <>
       <Header placement="primary">
-        <ChannelHeader channel={props.channel} />
+        <ChannelHeader
+          channel={props.channel}
+          sidebarState={sidebarState}
+          setSidebarState={setSidebarState}
+        />
       </Header>
       <Content>
-        <MessagingStack>
+        <main class={main()}>
           <BelowFloatingHeader>
             <div>
               <NewMessages
@@ -140,27 +161,88 @@ export function TextChannel(props: ChannelPageProps) {
             limit={150}
             lastReadId={lastId}
             pendingMessages={<DraftMessages channel={props.channel} />}
+            typingIndicator={
+              <TypingIndicator
+                users={props.channel.typing}
+                ownId={client().user!.id}
+              />
+            }
             highlightedMessageId={highlightMessageId}
             clearHighlightedMessage={() => navigate(".")}
             atEndRef={(ref) => (atEndRef = ref)}
             jumpToBottomRef={(ref) => (jumpToBottomRef = ref)}
           />
-          <TypingIndicator
-            users={props.channel.typing}
-            ownId={client().user!.id}
-          />
           <MessageComposition
             channel={props.channel}
             onMessageSend={() => jumpToBottomRef?.()}
           />
-        </MessagingStack>
+        </main>
         <Show
-          when={state.layout.getSectionState(
-            LAYOUT_SECTIONS.MEMBER_SIDEBAR,
-            true
-          )}
+          when={
+            (state.layout.getSectionState(
+              LAYOUT_SECTIONS.MEMBER_SIDEBAR,
+              true,
+            ) &&
+              props.channel.type !== "SavedMessages") ||
+            sidebarState().state !== "default"
+          }
         >
-          <MemberSidebar channel={props.channel} />
+          <div
+            ref={sidebarScrollTargetElement}
+            use:scrollable={{
+              direction: "y",
+              showOnHover: true,
+              class: sidebar(),
+            }}
+            style={{
+              width: sidebarState().state !== "default" ? "360px" : "",
+            }}
+          >
+            <Switch
+              fallback={
+                <MemberSidebar
+                  channel={props.channel}
+                  scrollTargetElement={sidebarScrollTargetElement}
+                />
+              }
+            >
+              <Match when={sidebarState().state === "search"}>
+                <WideSidebarContainer>
+                  <SidebarTitle>
+                    <Text class="label" size="large">
+                      Search Results
+                    </Text>
+                  </SidebarTitle>
+                  <TextSearchSidebar
+                    channel={props.channel}
+                    query={{
+                      query: (sidebarState() as { query: string }).query,
+                    }}
+                  />
+                </WideSidebarContainer>
+              </Match>
+              <Match when={sidebarState().state === "pins"}>
+                <WideSidebarContainer>
+                  <SidebarTitle>
+                    <Text class="label" size="large">
+                      Pinned Messages
+                    </Text>
+                  </SidebarTitle>
+                  <TextSearchSidebar
+                    channel={props.channel}
+                    query={{ pinned: true, sort: "Latest" }}
+                  />
+                </WideSidebarContainer>
+              </Match>
+            </Switch>
+
+            <Show when={sidebarState().state !== "default"}>
+              <Keybind
+                keybind={KeybindAction.CLOSE_SIDEBAR}
+                onPressed={() => setSidebarState({ state: "default" })}
+              />
+            </Show>
+          </div>
         </Show>
       </Content>
     </>
@@ -181,19 +263,34 @@ const Content = styled("div", {
 });
 
 /**
- * Component housing messages and composition
+ * Base styles
  */
-const MessagingStack = styled("div", {
+const sidebar = cva({
   base: {
-    display: "flex",
-    flexDirection: "column",
-    flexGrow: 1,
-    minWidth: 0,
-    minHeight: 0,
-    // padding: "0 var(--gap-md) 0 0",
-    paddingInline: "var(--gap-md)",
-    marginBlockEnd: "var(--gap-md)",
-    borderRadius: "var(--borderRadius-xl)",
-    background: "var(--colours-background)",
+    flexShrink: 0,
+    width: "var(--layout-width-channel-sidebar)",
+    // margin: "var(--gap-md)",
+    borderRadius: "var(--borderRadius-lg)",
+    // color: "var(--colours-sidebar-channels-foreground)",
+    // background: "var(--colours-sidebar-channels-background)",
+  },
+});
+
+/**
+ * Container styles
+ */
+const WideSidebarContainer = styled("div", {
+  base: {
+    paddingRight: "var(--gap-md)",
+    width: "360px",
+  },
+});
+
+/**
+ * Sidebar title
+ */
+const SidebarTitle = styled("div", {
+  base: {
+    padding: "var(--gap-md)",
   },
 });

@@ -1,7 +1,9 @@
+import { lingui as linguiSolidPlugin } from "@lingui-solid/vite-plugin";
 import devtools from "@solid-devtools/transform";
 import { readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
+import babelMacrosPlugin from "vite-plugin-babel-macros";
 import Inspect from "vite-plugin-inspect";
 import { VitePWA } from "vite-plugin-pwa";
 import solidPlugin from "vite-plugin-solid";
@@ -17,6 +19,8 @@ export default defineConfig({
     Inspect(),
     devtools(),
     codegenPlugin(),
+    babelMacrosPlugin(),
+    linguiSolidPlugin(),
     solidPlugin(),
     solidSvg({
       defaultAsComponent: false,
@@ -25,6 +29,9 @@ export default defineConfig({
       srcDir: "src",
       filename: "sw.ts",
       strategies: "injectManifest",
+      injectManifest: {
+        maximumFileSizeToCacheInBytes: 3000000
+      },
       manifest: {
         name: "Revolt",
         short_name: "Revolt",
@@ -81,7 +88,7 @@ export default defineConfig({
           ...p,
           [`@revolt/${f}`]: resolve(__dirname, "components", f),
         }),
-        {}
+        {},
       ),
     },
   },

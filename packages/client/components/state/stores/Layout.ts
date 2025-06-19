@@ -8,6 +8,7 @@ import { AbstractStore } from ".";
  * Static section IDs
  */
 export enum LAYOUT_SECTIONS {
+  PRIMARY_SIDEBAR = "PRIMARY_SIDEBAR",
   MEMBER_SIDEBAR = "MEMBER_SIDEBAR",
   MENTION_REPLY = "MENTION_REPLY",
   MATURE = "nsfw",
@@ -146,7 +147,7 @@ export class Layout extends AbstractStore<"layout", TypeLayout> {
     this.setSectionState(
       id,
       !this.getSectionState(id, defaultValue),
-      defaultValue
+      defaultValue,
     );
   }
 }

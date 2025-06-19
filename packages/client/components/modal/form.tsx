@@ -1,58 +1,26 @@
 import { Show, createSignal, splitProps } from "solid-js";
 import { createStore } from "solid-js/store";
 
-import { mapAnyError } from "@revolt/client";
-import { useTranslation } from "@revolt/i18n";
-import { Column, Form, typography, Typography } from "@revolt/ui";
-import type {
-  Action,
-  Props as ModalProps,
-} from "@revolt/ui/components/design/atoms/display/Modal";
-import { getInitialValues } from "@revolt/ui/components/tools/Form";
-import type {
-  Props as FormProps,
-  FormTemplate,
-  MapFormToValues,
-} from "@revolt/ui/components/tools/Form";
-
-import { modalController } from ".";
-import { Modals, PropGenerator } from "./types";
-
+import { Trans } from "@lingui-solid/solid/macro";
 import { styled } from "styled-system/jsx";
 
-type Props<T extends FormTemplate> = Omit<
-  FormProps<T>,
-  "onChange" | "store" | "setStore" | "submitBtn" | "onSubmit"
-> & {
-  /**
-   * Form submission callback
-   */
-  callback: (values: MapFormToValues<T>) => Promise<void>;
+import { useError } from "@revolt/i18n";
+import { Column, Form, FormTemplate, typography } from "@revolt/ui";
 
-  /**
-   * Submit button properties
-   */
-  submit?: Omit<Action, "onClick" | "confirmation">;
+import { useModals } from ".";
+import { Modals, PropGenerator } from "./types";
 
-  /**
-   * Custom actions after submit button
-   */
-  actions?: Action[];
-
-  /**
-   * Props for the modal
-   */
-  modalProps?: Omit<ModalProps, "disabled" | "actions">;
-};
+type Props<T extends FormTemplate> = any;
 
 /**
  * Create a modal from form data
  */
 export function createFormModal<
   T extends FormTemplate,
-  P extends Modals["type"]
+  P extends Modals["type"],
 >(props: Props<T>): ReturnType<PropGenerator<P>> {
-  const t = useTranslation();
+  const { pop } = useModals();
+
   const [localProps, formProps] = splitProps(props, [
     "callback",
     "submit",
@@ -61,10 +29,11 @@ export function createFormModal<
   ]);
 
   const [store, setStore] = createStore(
-    getInitialValues(formProps.schema, formProps.defaults)
+    getInitialValues(formProps.schema, formProps.defaults),
   );
 
-  const [error, setError] = createSignal<string>(null!);
+  const err = useError();
+  const [error, setError] = createSignal();
   const [processing, setProcessing] = createSignal(false);
 
   const onSubmit = async () => {
@@ -73,7 +42,7 @@ export function createFormModal<
       await localProps.callback(store);
       return true;
     } catch (err) {
-      setError(mapAnyError(err));
+      setError(err);
       setProcessing(false);
       return false;
     }
@@ -85,14 +54,14 @@ export function createFormModal<
     actions: [
       {
         onClick: onSubmit,
-        children: t("actions.submit"),
+        children: <Trans>Submit</Trans>,
         confirmation: true,
         ...props.submit,
       },
       ...(props.actions ?? [
         {
           onClick: () => true,
-          children: t("app.special.modals.actions.cancel"),
+          children: <Trans>Cancel</Trans>,
           variant: "plain",
         },
       ]),
@@ -105,12 +74,12 @@ export function createFormModal<
           setStore={setStore}
           onSubmit={async () => {
             if (await onSubmit()) {
-              modalController.pop();
+              pop();
             }
           }}
         />
         <Show when={error()}>
-          <Error>{t(`error.${error()}` as any, undefined, error())}</Error>
+          <Error>{err(error())}</Error>
         </Show>
       </Column>
     ),
@@ -123,7 +92,5 @@ export function createFormModal<
 const Error = styled("div", {
   base: {
     color: "var(--customColours-error-color)",
-
-    ...typography.raw({ class: "label", size: "small" }),
   },
 });

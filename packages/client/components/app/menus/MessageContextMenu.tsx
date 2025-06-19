@@ -1,16 +1,18 @@
-import { Show } from "solid-js";
+import { Match, Show, Switch } from "solid-js";
 
+import { Trans } from "@lingui-solid/solid/macro";
 import { Message } from "revolt.js";
 
 import { useClient, useUser } from "@revolt/client";
-import { getController } from "@revolt/common";
-import { useTranslation } from "@revolt/i18n";
-import { state } from "@revolt/state";
+import { useModals } from "@revolt/modal";
+import { useState } from "@revolt/state";
 
 import MdBadge from "@material-design-icons/svg/outlined/badge.svg?component-solid";
 import MdContentCopy from "@material-design-icons/svg/outlined/content_copy.svg?component-solid";
 import MdDelete from "@material-design-icons/svg/outlined/delete.svg?component-solid";
+import MdEdit from "@material-design-icons/svg/outlined/edit.svg?component-solid";
 import MdMarkChatUnread from "@material-design-icons/svg/outlined/mark_chat_unread.svg?component-solid";
+import MdPin from "@material-design-icons/svg/outlined/pin_invoke.svg?component-solid";
 import MdReply from "@material-design-icons/svg/outlined/reply.svg?component-solid";
 import MdReport from "@material-design-icons/svg/outlined/report.svg?component-solid";
 import MdShare from "@material-design-icons/svg/outlined/share.svg?component-solid";
@@ -27,8 +29,9 @@ import {
  */
 export function MessageContextMenu(props: { message: Message }) {
   const user = useUser();
+  const state = useState();
   const client = useClient();
-  const t = useTranslation();
+  const { openModal, showError } = useModals();
 
   /**
    * Reply to this message
@@ -55,7 +58,7 @@ export function MessageContextMenu(props: { message: Message }) {
    * Report the message
    */
   function report() {
-    getController("modal").push({
+    openModal({
       type: "report_content",
       target: props.message,
       client: client(),
@@ -69,7 +72,7 @@ export function MessageContextMenu(props: { message: Message }) {
     if (ev.shiftKey) {
       props.message.delete();
     } else {
-      getController("modal").push({
+      openModal({
         type: "delete_message",
         message: props.message,
       });
@@ -82,7 +85,7 @@ export function MessageContextMenu(props: { message: Message }) {
   function openAdminPanel() {
     window.open(
       `https://admin.revolt.chat/panel/inspect/message/${props.message.id}`,
-      "_blank"
+      "_blank",
     );
   }
 
@@ -93,7 +96,7 @@ export function MessageContextMenu(props: { message: Message }) {
     navigator.clipboard.writeText(
       `${location.origin}${
         props.message.server ? `/server/${props.message.server?.id}` : ""
-      }/channel/${props.message.channelId}/${props.message.id}`
+      }/channel/${props.message.channelId}/${props.message.id}`,
     );
   }
 
@@ -107,18 +110,49 @@ export function MessageContextMenu(props: { message: Message }) {
   return (
     <ContextMenu>
       <ContextMenuButton icon={MdReply} onClick={reply}>
-        {t("app.context_menu.reply_message")}
+        <Trans>Reply</Trans>
       </ContextMenuButton>
       <ContextMenuButton icon={MdMarkChatUnread} onClick={markAsUnread}>
-        {t("app.context_menu.mark_unread")}
+        <Trans>Mark as unread</Trans>
       </ContextMenuButton>
       <ContextMenuButton icon={MdContentCopy} onClick={copyText}>
-        {t("app.context_menu.copy_text")}
+        <Trans>Copy text</Trans>
       </ContextMenuButton>
       <ContextMenuDivider />
-      <Show when={!props.message.author?.self}>
-        <ContextMenuButton icon={MdReport} onClick={report} destructive>
-          {t("app.context_menu.report_message")}
+      <Show
+        when={
+          props.message.author?.self &&
+          props.message.channel?.havePermission("SendMessage")
+        }
+      >
+        <ContextMenuButton
+          icon={MdEdit}
+          onClick={() => state.draft.setEditingMessage(props.message)}
+        >
+          <Trans>Edit message</Trans>
+        </ContextMenuButton>
+      </Show>
+      <Show
+        when={
+          props.message.author?.self ||
+          props.message.channel?.havePermission("ManageMessages")
+        }
+      >
+        <ContextMenuButton
+          icon={MdPin}
+          onClick={() => {
+            if (props.message.pinned) {
+              props.message.unpin().catch(showError);
+            } else {
+              props.message.pin().catch(showError);
+            }
+          }}
+        >
+          <Switch fallback={<Trans>Pin message</Trans>}>
+            <Match when={props.message.pinned}>
+              <Trans>Unpin message</Trans>
+            </Match>
+          </Switch>
         </ContextMenuButton>
       </Show>
       <Show
@@ -128,18 +162,23 @@ export function MessageContextMenu(props: { message: Message }) {
         }
       >
         <ContextMenuButton icon={MdDelete} onClick={deleteMessage} destructive>
-          {t("app.context_menu.delete_message")}
+          <Trans>Delete message</Trans>
+        </ContextMenuButton>
+      </Show>
+      <Show when={!props.message.author?.self}>
+        <ContextMenuButton icon={MdReport} onClick={report} destructive>
+          <Trans>Report message</Trans>
         </ContextMenuButton>
       </Show>
       <ContextMenuDivider />
       <ContextMenuButton icon={MdShield} onClick={openAdminPanel}>
-        Admin Panel
+        <Trans>Admin Panel</Trans>
       </ContextMenuButton>
       <ContextMenuButton icon={MdShare} onClick={copyLink}>
-        {t("app.context_menu.copy_link")}
+        <Trans>Copy link</Trans>
       </ContextMenuButton>
       <ContextMenuButton icon={MdBadge} onClick={copyId}>
-        {t("app.context_menu.copy_mid")}
+        <Trans>Copy message ID</Trans>
       </ContextMenuButton>
     </ContextMenu>
   );

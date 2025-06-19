@@ -1,15 +1,17 @@
 import {
   Accessor,
+  type JSX,
   createContext,
+  createMemo,
   createSignal,
   untrack,
   useContext,
 } from "solid-js";
-
 import { Motion, Presence } from "solid-motionone";
+
 import { Rerun } from "@solid-primitives/keyed";
 
-import { SettingsConfiguration, SettingsEntry } from ".";
+import { SettingsConfiguration, SettingsEntry, SettingsList } from ".";
 import { SettingsContent } from "./_layout/Content";
 import { SettingsSidebar } from "./_layout/Sidebar";
 
@@ -84,55 +86,82 @@ export function Settings(props: SettingsProps & SettingsConfiguration<never>) {
         navigate,
       }}
     >
-      <SettingsSidebar
-        context={props.context}
-        list={props.list}
-        page={page}
-        setPage={setPage}
-      />
-      <SettingsContent page={page} title={props.title} onClose={props.onClose}>
-        <Presence exitBeforeEnter>
-          <Rerun on={page}>
-            <Motion.div
-              style={
-                untrack(transition) === "normal" ? {} : { visibility: "hidden" }
-              }
-              ref={(el) =>
-                untrack(transition) !== "normal" &&
-                setTimeout(() => (el.style.visibility = "visible"), 250)
-              }
-              initial={
-                transition() === "normal"
-                  ? { opacity: 0, y: 50 }
-                  : transition() === "to-child"
-                  ? {
-                      x: "100vw",
-                    }
-                  : { x: "-100vw" }
-              }
-              animate={{
-                opacity: 1,
-                x: 0,
-                y: 0,
-              }}
-              exit={
-                transition() === "normal"
-                  ? undefined
-                  : transition() === "to-child"
-                  ? {
-                      x: "-100vw",
-                    }
-                  : { x: "100vw" }
-              }
-              transition={{ duration: 0.2, easing: [0.17, 0.67, 0.58, 0.98] }}
+      <MemoisedList context={props.context} list={props.list}>
+        {(list) => (
+          <>
+            <SettingsSidebar list={list} page={page} setPage={setPage} />
+            <SettingsContent
+              page={page}
+              list={list}
+              title={props.title}
+              onClose={props.onClose}
             >
-              {props.render({ page }, props.context)}
-            </Motion.div>
-          </Rerun>
-        </Presence>
-      </SettingsContent>
+              <Presence exitBeforeEnter>
+                <Rerun on={page}>
+                  <Motion.div
+                    style={
+                      untrack(transition) === "normal"
+                        ? {}
+                        : { visibility: "hidden" }
+                    }
+                    ref={(el) =>
+                      untrack(transition) !== "normal" &&
+                      setTimeout(() => (el.style.visibility = "visible"), 250)
+                    }
+                    initial={
+                      transition() === "normal"
+                        ? { opacity: 0, y: 50 }
+                        : transition() === "to-child"
+                          ? {
+                              x: "100vw",
+                            }
+                          : { x: "-100vw" }
+                    }
+                    animate={{
+                      opacity: 1,
+                      x: 0,
+                      y: 0,
+                    }}
+                    exit={
+                      transition() === "normal"
+                        ? undefined
+                        : transition() === "to-child"
+                          ? {
+                              x: "-100vw",
+                            }
+                          : { x: "100vw" }
+                    }
+                    transition={{
+                      duration: 0.2,
+                      easing: [0.17, 0.67, 0.58, 0.98],
+                    }}
+                  >
+                    {props.render({ page }, props.context)}
+                  </Motion.div>
+                </Rerun>
+              </Presence>
+            </SettingsContent>
+          </>
+        )}
+      </MemoisedList>
     </SettingsNavigationContext.Provider>
   );
+}
+
+/**
+ * Memoise the list but generate it within context
+ */
+function MemoisedList(props: {
+  context: never;
+  list: (context: never) => SettingsList;
+  children: (list: Accessor<SettingsList>) => JSX.Element;
+}) {
+  /**
+   * Generate list of categories / links
+   */
+  const list = createMemo(() => props.list(props.context));
+
+  return <>{props.children(list)}</>;
 }
 
 /**

@@ -1,16 +1,24 @@
 import { type Accessor, type JSX, onCleanup } from "solid-js";
+
 import { cva } from "styled-system/css";
 
 const baseStyles = cva({
   base: {
     willChange: "transform",
 
+    scrollbarColor: "var(--md-sys-color-primary) transparent",
+
     "&::-webkit-scrollbar": {
       width: "8px",
       height: "8px",
     },
 
+    "&::-webkit-scrollbar-track": {
+      background: "transparent",
+    },
+
     "&::-webkit-scrollbar-thumb": {
+      background: "var(--md-sys-color-primary)",
       backgroundClip: "content-box",
 
       border: "1px solid transparent",
@@ -19,34 +27,6 @@ const baseStyles = cva({
     },
   },
   variants: {
-    palette: {
-      default: {
-        scrollbarColor:
-          "var(--colours-component-scrollbar-foreground)" +
-          " var(--colours-component-scrollbar-background)",
-
-        "&::-webkit-scrollbar-track": {
-          background: "var(--colours-component-scrollbar-background)",
-        },
-
-        "&::-webkit-scrollbar-thumb": {
-          background: "var(--colours-component-scrollbar-foreground)",
-        },
-      },
-      settings: {
-        scrollbarColor:
-          "var(--colours-settings-content-scroll-thumb)" +
-          " var(--colours-settings-content-background)",
-
-        "&::-webkit-scrollbar-track": {
-          background: "var(--colours-settings-content-background)",
-        },
-
-        "&::-webkit-scrollbar-thumb": {
-          background: "var(--colours-settings-content-scroll-thumb)",
-        },
-      },
-    },
     direction: {
       x: {
         overflowX: "scroll",
@@ -68,7 +48,6 @@ const baseStyles = cva({
     },
   },
   defaultVariants: {
-    palette: "default",
     direction: "y",
     showOnHover: false,
   },
@@ -91,7 +70,7 @@ const hoverStyles = cva({
  */
 export function scrollable(
   el: HTMLDivElement,
-  accessor: Accessor<JSX.Directives["scrollable"] & object>
+  accessor: Accessor<JSX.Directives["scrollable"] & object>,
 ) {
   const props = accessor();
   if (!props) return;
@@ -100,17 +79,11 @@ export function scrollable(
     el.style.paddingTop = props.offsetTop + "px";
   }
 
-  console.error(
-    baseStyles({
-      direction: props.direction,
-      showOnHover: props.showOnHover,
-    }).split(" ")
-  );
   el.classList.add(
     ...baseStyles({
       direction: props.direction,
       showOnHover: props.showOnHover,
-    }).split(" ")
+    }).split(" "),
   );
 
   if (props.class) {

@@ -1,7 +1,8 @@
-import { useClient } from "@revolt/client";
-import { useTranslation } from "@revolt/i18n";
+import { Trans } from "@lingui-solid/solid/macro";
 
-import { modalController } from "..";
+import { useClient } from "@revolt/client";
+
+import { useModals } from "..";
 import { createFormModal } from "../form";
 import { PropGenerator } from "../types";
 
@@ -9,26 +10,24 @@ import { PropGenerator } from "../types";
  * Modal to delete a server
  */
 const DeleteServer: PropGenerator<"delete_server"> = (props) => {
-  const t = useTranslation();
   const client = useClient();
+  const { mfaFlow } = useModals();
 
   return createFormModal({
     modalProps: {
-      title: t("app.special.modals.prompt.confirm_delete", {
-        name: props.server.name,
-      }),
-      description: t("app.special.modals.prompt.confirm_delete_long"),
+      title: <Trans>Delete {props.server.name}?</Trans>,
+      description: <Trans>Once it's deleted, there's no going back.</Trans>,
     },
     schema: {},
     data: {},
     callback: async () => {
       const mfa = await client().account.mfa();
-      await modalController.mfaFlow(mfa as never);
+      await mfaFlow(mfa as never);
       await props.server.delete(); // TODO: should use ticket in API
     },
     submit: {
       variant: "error",
-      children: t("app.special.modals.actions.delete"),
+      children: <Trans>Delete</Trans>,
     },
   });
 };

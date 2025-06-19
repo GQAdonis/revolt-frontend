@@ -1,36 +1,25 @@
-import {
-  type Accessor,
-  Match,
-  Show,
-  Switch,
-  createMemo,
-  createSignal,
-  onMount,
-} from "solid-js";
+import { Match, Show, Switch, createMemo, createSignal } from "solid-js";
 
-import { clientController, useClient } from "@revolt/client";
+import { Trans } from "@lingui-solid/solid/macro";
+
+import { useClient, useClientLifecycle } from "@revolt/client";
 import {
   createMfaResource,
   createOwnProfileResource,
 } from "@revolt/client/resources";
-import { getController } from "@revolt/common";
-import { useTranslation } from "@revolt/i18n";
+import { useModals } from "@revolt/modal";
 import {
   CategoryButton,
   CategoryButtonGroup,
   CategoryCollapse,
   Column,
   Row,
-  Typography,
   iconSize,
 } from "@revolt/ui";
 
-import MdCakeFill from "@material-design-icons/svg/filled/cake.svg?component-solid";
 import MdAlternateEmail from "@material-design-icons/svg/outlined/alternate_email.svg?component-solid";
 import MdBlock from "@material-design-icons/svg/outlined/block.svg?component-solid";
 import MdDelete from "@material-design-icons/svg/outlined/delete.svg?component-solid";
-import MdDraw from "@material-design-icons/svg/outlined/draw.svg?component-solid";
-import MdEdit from "@material-design-icons/svg/outlined/edit.svg?component-solid";
 import MdLock from "@material-design-icons/svg/outlined/lock.svg?component-solid";
 import MdMail from "@material-design-icons/svg/outlined/mail.svg?component-solid";
 import MdPassword from "@material-design-icons/svg/outlined/password.svg?component-solid";
@@ -43,7 +32,7 @@ import { UserSummary } from "./account/index";
 /**
  * Account Page
  */
-export default function MyAccount() {
+export function MyAccount() {
   const client = useClient();
   const profile = createOwnProfileResource();
   const { navigate } = useSettingsNavigation();
@@ -67,8 +56,8 @@ export default function MyAccount() {
  * Edit account details
  */
 function EditAccount() {
-  const t = useTranslation();
   const client = useClient();
+  const { openModal } = useModals();
   const [email, setEmail] = createSignal("•••••••••••@•••••••••••");
 
   return (
@@ -76,7 +65,7 @@ function EditAccount() {
       <CategoryButton
         action="chevron"
         onClick={() =>
-          getController("modal").push({
+          openModal({
             type: "edit_username",
             client: client(),
           })
@@ -84,12 +73,12 @@ function EditAccount() {
         icon={<MdAlternateEmail {...iconSize(22)} />}
         description={client().user?.username}
       >
-        {t("login.username")}
+        <Trans>Username</Trans>
       </CategoryButton>
       <CategoryButton
         action="chevron"
         onClick={() =>
-          getController("modal").push({
+          openModal({
             type: "edit_email",
             client: client(),
           })
@@ -111,12 +100,12 @@ function EditAccount() {
           </Row>
         }
       >
-        {t("login.email")}
+        <Trans>Email</Trans>
       </CategoryButton>
       <CategoryButton
         action="chevron"
         onClick={() =>
-          getController("modal").push({
+          openModal({
             type: "edit_password",
             client: client(),
           })
@@ -124,7 +113,7 @@ function EditAccount() {
         icon={<MdPassword {...iconSize(22)} />}
         description={"•••••••••"}
       >
-        {t("login.password")}
+        <Trans>Password</Trans>
       </CategoryButton>
     </CategoryButtonGroup>
   );
@@ -136,20 +125,20 @@ function EditAccount() {
 function MultiFactorAuth() {
   const client = useClient();
   const mfa = createMfaResource();
+  const { openModal, mfaFlow, mfaEnableTOTP } = useModals();
 
   /**
    * Show recovery codes
    */
   async function showRecoveryCodes() {
-    const modals = getController("modal");
-    const ticket = await modals.mfaFlow(mfa.data!);
+    const ticket = await mfaFlow(mfa.data!);
 
     ticket!.fetchRecoveryCodes().then((codes) =>
-      getController("modal").push({
+      openModal({
         type: "mfa_recovery",
         mfa: mfa.data!,
         codes,
-      })
+      }),
     );
   }
 
@@ -157,15 +146,14 @@ function MultiFactorAuth() {
    * Generate recovery codes
    */
   async function generateRecoveryCodes() {
-    const modals = getController("modal");
-    const ticket = await modals.mfaFlow(mfa.data!);
+    const ticket = await mfaFlow(mfa.data!);
 
     ticket!.generateRecoveryCodes().then((codes) =>
-      getController("modal").push({
+      openModal({
         type: "mfa_recovery",
         mfa: mfa.data!,
         codes,
-      })
+      }),
     );
   }
 
@@ -173,17 +161,13 @@ function MultiFactorAuth() {
    * Configure authenticator app
    */
   async function setupAuthenticatorApp() {
-    const modals = getController("modal");
-    const ticket = await modals.mfaFlow(mfa.data!);
+    const ticket = await mfaFlow(mfa.data!);
     const secret = await ticket!.generateAuthenticatorSecret();
 
     let success;
     while (!success) {
       try {
-        const code = await modals.mfaEnableTOTP(
-          secret,
-          client().user!.username
-        );
+        const code = await mfaEnableTOTP(secret, client().user!.username);
 
         if (code) {
           await mfa.data!.enableAuthenticator(code);
@@ -199,17 +183,20 @@ function MultiFactorAuth() {
    * Disable authenticator app
    */
   function disableAuthenticatorApp() {
-    getController("modal")
-      .mfaFlow(mfa.data!)
-      .then((ticket) => ticket!.disableAuthenticator());
+    mfaFlow(mfa.data!).then((ticket) => ticket!.disableAuthenticator());
   }
 
   return (
     <CategoryButtonGroup>
       <CategoryCollapse
         icon={<MdVerifiedUser {...iconSize(22)} />}
-        title="Recovery Codes"
-        description="Configure a way to get back into your account in case your 2FA is lost"
+        title={<Trans>Recovery Codes</Trans>}
+        description={
+          <Trans>
+            Configure a way to get back into your account in case your 2FA is
+            lost
+          </Trans>
+        }
       >
         <Switch
           fallback={
@@ -217,34 +204,34 @@ function MultiFactorAuth() {
               icon="blank"
               disabled={mfa.isLoading}
               onClick={generateRecoveryCodes}
-              description="Setup recovery codes"
+              description={<Trans>Setup recovery codes</Trans>}
             >
-              Generate Recovery Codes
+              <Trans>Generate Recovery Codes</Trans>
             </CategoryButton>
           }
         >
           <Match when={!mfa.isLoading && mfa.data?.recoveryEnabled}>
             <CategoryButton
               icon="blank"
-              description="Get active recovery codes"
+              description={<Trans>Get active recovery codes</Trans>}
               onClick={showRecoveryCodes}
             >
-              View Recovery Codes
+              <Trans>View Recovery Codes</Trans>
             </CategoryButton>
             <CategoryButton
               icon="blank"
-              description="Get a new set of recovery codes"
+              description={<Trans>Get a new set of recovery codes</Trans>}
               onClick={generateRecoveryCodes}
             >
-              Reset Recovery Codes
+              <Trans>Reset Recovery Codes</Trans>
             </CategoryButton>
           </Match>
         </Switch>
       </CategoryCollapse>
       <CategoryCollapse
         icon={<MdLock {...iconSize(22)} />}
-        title="Authenticator App"
-        description="Configure one-time password authentication"
+        title={<Trans>Authenticator App</Trans>}
+        description={<Trans>Configure one-time password authentication</Trans>}
       >
         <Switch
           fallback={
@@ -252,19 +239,21 @@ function MultiFactorAuth() {
               icon="blank"
               disabled={mfa.isLoading}
               onClick={setupAuthenticatorApp}
-              description="Setup one-time password authenticator"
+              description={<Trans>Setup one-time password authenticator</Trans>}
             >
-              Enable Authenticator
+              <Trans>Enable Authenticator</Trans>
             </CategoryButton>
           }
         >
           <Match when={!mfa.isLoading && mfa.data?.authenticatorEnabled}>
             <CategoryButton
               icon="blank"
-              description="Disable one-time password authenticator"
+              description={
+                <Trans>Disable one-time password authenticator</Trans>
+              }
               onClick={disableAuthenticatorApp}
             >
-              Remove Authenticator
+              <Trans>Remove Authenticator</Trans>
             </CategoryButton>
           </Match>
         </Switch>
@@ -277,36 +266,33 @@ function MultiFactorAuth() {
  * Manage account
  */
 function ManageAccount() {
-  const t = useTranslation();
   const client = useClient();
   const mfa = createMfaResource();
+  const { mfaFlow } = useModals();
+  const { logout } = useClientLifecycle();
 
   const stillOwnServers = createMemo(
     () =>
       client().servers.filter((server) => server.owner?.self || false).length >
-      0
+      0,
   );
 
   /**
    * Disable account
    */
   function disableAccount() {
-    getController("modal")
-      .mfaFlow(mfa.data!)
-      .then((ticket) =>
-        ticket!.disableAccount().then(() => clientController.logout())
-      );
+    mfaFlow(mfa.data!).then((ticket) =>
+      ticket!.disableAccount().then(() => logout()),
+    );
   }
 
   /**
    * Delete account
    */
   function deleteAccount() {
-    getController("modal")
-      .mfaFlow(mfa.data!)
-      .then((ticket) =>
-        ticket!.deleteAccount().then(() => clientController.logout())
-      );
+    mfaFlow(mfa.data!).then((ticket) =>
+      ticket!.deleteAccount().then(() => logout()),
+    );
   }
 
   return (
@@ -318,9 +304,14 @@ function ManageAccount() {
         icon={
           <MdBlock {...iconSize(22)} fill="var(--customColours-error-color)" />
         }
-        description={t("app.settings.pages.account.manage.disable_description")}
+        description={
+          <Trans>
+            You won't be able to access your account unless you contact support
+            - however, your data will not be deleted.
+          </Trans>
+        }
       >
-        {t("app.settings.pages.account.manage.disable")}
+        <Trans>Disable Account</Trans>
       </CategoryButton>
       <CategoryButton
         action={stillOwnServers() ? undefined : "chevron"}
@@ -329,13 +320,21 @@ function ManageAccount() {
         icon={
           <MdDelete {...iconSize(22)} fill="var(--customColours-error-color)" />
         }
-        description={t("app.settings.pages.account.manage.delete_description")}
+        description={
+          <Trans>
+            Your account and all of your data (including your messages and
+            friends list) will be queued for deletion. A confirmation email will
+            be sent - you can cancel this within 7 days by contacting support.
+          </Trans>
+        }
       >
-        {t(
-          stillOwnServers()
-            ? "app.settings.pages.account.manage.delete_still_own_servers"
-            : "app.settings.pages.account.manage.delete"
-        )}
+        <Switch fallback={<Trans>Delete Account</Trans>}>
+          <Match when={stillOwnServers()}>
+            <Trans>
+              Cannot delete account until servers are deleted or transferred
+            </Trans>
+          </Match>
+        </Switch>
       </CategoryButton>
     </CategoryButtonGroup>
   );

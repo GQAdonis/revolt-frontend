@@ -1,8 +1,10 @@
 import { For } from "solid-js";
 
+import { Trans } from "@lingui-solid/solid/macro";
+
 import { useClient } from "@revolt/client";
 import { createOwnProfileResource } from "@revolt/client/resources";
-import { modalController } from "@revolt/modal";
+import { useModals } from "@revolt/modal";
 import {
   Avatar,
   CategoryButton,
@@ -23,6 +25,7 @@ import { EditProfileButtons } from "./EditProfileButtons";
  */
 export function EditProfile() {
   const client = useClient();
+  const { openModal } = useModals();
   const profile = createOwnProfileResource();
 
   return (
@@ -37,8 +40,8 @@ export function EditProfile() {
       <CategoryButtonGroup>
         <CategoryCollapse
           icon={<MdGroups {...iconSize(22)} />}
-          title="Server Identities"
-          description="Change your profile per-server"
+          title={<Trans>Server Identities</Trans>}
+          description={<Trans>Change your profile per-server</Trans>}
           scrollable
         >
           <For each={client().servers.toList()}>
@@ -52,7 +55,7 @@ export function EditProfile() {
                   />
                 }
                 onClick={() =>
-                  modalController.push({
+                  openModal({
                     type: "server_identity",
                     member: server.member!,
                   })

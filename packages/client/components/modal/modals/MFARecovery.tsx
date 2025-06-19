@@ -1,9 +1,9 @@
 import { For, createSignal } from "solid-js";
 
-import { useTranslation } from "@revolt/i18n";
+import { Trans } from "@lingui-solid/solid/macro";
 import { styled } from "styled-system/jsx";
 
-import { modalController } from "..";
+import { useModals } from "..";
 import { PropGenerator } from "../types";
 
 /**
@@ -29,7 +29,7 @@ const List = styled("div", {
  * Modal to display a list of recovery codes
  */
 const MFARecovery: PropGenerator<"mfa_recovery"> = (props) => {
-  const t = useTranslation();
+  const { mfaFlow } = useModals();
 
   // Keep track of changes to recovery codes
   // eslint-disable-next-line solid/reactivity
@@ -39,7 +39,7 @@ const MFARecovery: PropGenerator<"mfa_recovery"> = (props) => {
    * Reset recovery codes
    */
   const reset = async () => {
-    const ticket = await modalController.mfaFlow(props.mfa);
+    const ticket = await mfaFlow(props.mfa);
     if (ticket) {
       const codes = await ticket.generateRecoveryCodes();
       setCodes(codes);
@@ -49,18 +49,18 @@ const MFARecovery: PropGenerator<"mfa_recovery"> = (props) => {
   };
 
   return {
-    title: t("app.special.modals.mfa.recovery_codes"),
-    description: t("app.special.modals.mfa.save_codes"),
+    title: <Trans>Your recovery codes</Trans>,
+    description: <Trans>Please save these to a safe location.</Trans>,
     actions: [
       {
         palette: "primary",
-        children: t("app.special.modals.actions.done"),
+        children: <Trans>Done</Trans>,
         onClick: () => true,
         confirmation: true,
       },
       {
         palette: "plain",
-        children: t("app.special.modals.actions.reset"),
+        children: <Trans>Reset</Trans>,
         onClick: reset,
       },
     ],

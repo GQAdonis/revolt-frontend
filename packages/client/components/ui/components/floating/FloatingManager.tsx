@@ -9,13 +9,15 @@ import {
   onMount,
 } from "solid-js";
 import { Portal } from "solid-js/web";
+import { Motion, Presence } from "solid-motionone";
 
 import { autoUpdate, flip, offset, shift } from "@floating-ui/dom";
-import { Motion, Presence } from "solid-motionone";
-import { cva } from "styled-system/css";
+
+import { Keybind, KeybindAction } from "@revolt/keybinds";
 
 import { FloatingElement, floatingElements } from "../../directives";
 
+import { dismissFloatingElements } from ".";
 import { AutoComplete } from "./AutoComplete";
 import { TooltipBase } from "./Tooltip";
 import { UserCard } from "./UserCard";
@@ -38,6 +40,13 @@ export function FloatingManager() {
   onMount(() => document.addEventListener("mousemove", onMouseMove));
   onCleanup(() => document.addEventListener("mousemove", onMouseMove));
 
+  /**
+   * Whether a floating element is visible
+   */
+  function anyVisible() {
+    return floatingElements().find((el) => el.show());
+  }
+
   return (
     <Portal mount={document.getElementById("floating")!}>
       <For each={floatingElements()}>
@@ -49,6 +58,13 @@ export function FloatingManager() {
           </Presence>
         )}
       </For>
+
+      <Show when={anyVisible()}>
+        <Keybind
+          keybind={KeybindAction.CLOSE_FLOATING}
+          onPressed={dismissFloatingElements}
+        />
+      </Show>
     </Portal>
   );
 }
@@ -123,6 +139,48 @@ function Floating(props: FloatingElement & { mouseX: number; mouseY: number }) {
     const currentlyShown = props.show();
     if (!currentlyShown?.contextMenu && !currentlyShown?.userCard) return;
 
+    // Check if we've clicked inside of the user card / context menu
+    const parentEl = floating();
+
+    let currentEl = event.target as HTMLElement | null;
+    while (currentEl && currentEl !== parentEl) {
+      currentEl = currentEl.parentElement;
+    }
+
+    if (currentEl === null) {
+      // If we're operating in card mode, don't hide yet if we click on the context menu
+      // jank alert!
+      if (currentlyShown.userCard) {
+        const targetEl = document.querySelector(".UserContextMenu");
+
+        if (targetEl) {
+          let currentEl = event.target as HTMLElement | null;
+          while (currentEl && currentEl !== targetEl) {
+            currentEl = currentEl.parentElement;
+          }
+
+          if (currentEl) return;
+        }
+      }
+
+      props.hide();
+    }
+  }
+
+  if (props.config().contextMenu || props.config().userCard) {
+    onMount(() => document.addEventListener("mousedown", onMouseDown));
+    onCleanup(() => document.removeEventListener("mousedown", onMouseDown));
+  }
+
+  /**
+   * Jank catcher 9000
+   * @param event Event
+   */
+  function onMouseUp(event: MouseEvent) {
+    const currentlyShown = props.show();
+    if (!currentlyShown?.userCard) return;
+
+    // Check if we've clicked inside of the user card
     const parentEl = floating();
 
     let currentEl = event.target as HTMLElement | null;
@@ -135,9 +193,11 @@ function Floating(props: FloatingElement & { mouseX: number; mouseY: number }) {
     }
   }
 
-  if (props.config().contextMenu) {
-    onMount(() => document.addEventListener("mousedown", onMouseDown));
-    onCleanup(() => document.removeEventListener("mousedown", onMouseDown));
+  if (props.config().userCard) {
+    onMount(() =>
+      setTimeout(() => document.addEventListener("click", onMouseUp), 0),
+    );
+    onCleanup(() => document.removeEventListener("click", onMouseUp));
   }
 
   /**
@@ -167,7 +227,7 @@ function Floating(props: FloatingElement & { mouseX: number; mouseY: number }) {
           position: position.strategy,
           top: `${position.y ?? 0}px`,
           left: `${position.x ?? 0}px`,
-          "z-index": "var(--layout-zIndex-floating-element)",
+          "z-index": "999",
         }}
       >
         <Switch>
@@ -182,6 +242,7 @@ function Floating(props: FloatingElement & { mouseX: number; mouseY: number }) {
             <UserCard
               user={props.show()!.userCard!.user}
               member={props.show()!.userCard!.member}
+              onClose={props.hide}
             />
           </Match>
           <Match when={props.show()?.contextMenu}>

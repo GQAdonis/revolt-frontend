@@ -1,17 +1,17 @@
-import { JSX, Match, Switch, createEffect, onCleanup, onMount } from "solid-js";
+import { JSX, Match, Switch, createEffect } from "solid-js";
 
 import { Server } from "revolt.js";
+import { styled } from "styled-system/jsx";
 
 import { ChannelContextMenu, ServerContextMenu } from "@revolt/app";
-import { clientController } from "@revolt/client";
+import { useClientLifecycle } from "@revolt/client";
 import { State, TransitionType } from "@revolt/client/Controller";
-import { KeybindAction } from "@revolt/keybinds";
-import { modalController } from "@revolt/modal";
+import { NotificationsWorker } from "@revolt/client/NotificationsWorker";
+import { useModals } from "@revolt/modal";
 import { Navigate, useBeforeLeave } from "@revolt/routing";
-import { state } from "@revolt/state";
+import { useState } from "@revolt/state";
+import { LAYOUT_SECTIONS } from "@revolt/state/stores/Layout";
 import { Preloader } from "@revolt/ui";
-import { useKeybindActions } from "@revolt/ui/components/context/Keybinds";
-import { styled } from "styled-system/jsx";
 
 import { Sidebar } from "./interface/Sidebar";
 
@@ -19,13 +19,15 @@ import { Sidebar } from "./interface/Sidebar";
  * Application layout
  */
 const Interface = (props: { children: JSX.Element }) => {
-  const keybinds = useKeybindActions();
+  const state = useState();
+  const { openModal } = useModals();
+  const { isLoggedIn, lifecycle } = useClientLifecycle();
 
   useBeforeLeave((e) => {
     if (!e.defaultPrevented) {
       if (e.to === "/settings") {
         e.preventDefault();
-        modalController.push({
+        openModal({
           type: "settings",
           config: "user",
         });
@@ -35,23 +37,9 @@ const Interface = (props: { children: JSX.Element }) => {
     }
   });
 
-  onMount(() => {
-    keybinds.addEventListener(
-      KeybindAction.DeveloperToggleAllExperiments,
-      state.experiments.toggleSafeMode
-    );
-  });
-
-  onCleanup(() => {
-    keybinds.removeEventListener(
-      KeybindAction.DeveloperToggleAllExperiments,
-      state.experiments.toggleSafeMode
-    );
-  });
-
   createEffect(() => {
-    if (!clientController.isLoggedIn()) {
-      console.info("WAITING... currently", clientController.lifecycle.state());
+    if (!isLoggedIn()) {
+      console.info("WAITING... currently", lifecycle.state());
     }
   });
 
@@ -66,19 +54,15 @@ const Interface = (props: { children: JSX.Element }) => {
       <Notice>
         ⚠️ This is beta software, things will break! State:{" "}
         <Switch>
-          <Match when={clientController.lifecycle.state() === State.Connecting}>
+          <Match when={lifecycle.state() === State.Connecting}>
             Connecting
           </Match>
-          <Match when={clientController.lifecycle.state() === State.Connected}>
-            Connected
-          </Match>
-          <Match
-            when={clientController.lifecycle.state() === State.Disconnected}
-          >
+          <Match when={lifecycle.state() === State.Connected}>Connected</Match>
+          <Match when={lifecycle.state() === State.Disconnected}>
             Disconnected{" "}
             <a
               onClick={() =>
-                clientController.lifecycle.transition({
+                lifecycle.transition({
                   type: TransitionType.Retry,
                 })
               }
@@ -86,21 +70,19 @@ const Interface = (props: { children: JSX.Element }) => {
               (reconnect now)
             </a>
           </Match>
-          <Match
-            when={clientController.lifecycle.state() === State.Reconnecting}
-          >
+          <Match when={lifecycle.state() === State.Reconnecting}>
             Reconnecting
           </Match>
-          <Match when={clientController.lifecycle.state() === State.Offline}>
+          <Match when={lifecycle.state() === State.Offline}>
             Device is offline
           </Match>
         </Switch>
       </Notice>
       <Switch fallback={<Preloader grow type="spinner" />}>
-        <Match when={!clientController.isLoggedIn()}>
+        <Match when={!isLoggedIn()}>
           <Navigate href="/login" />
         </Match>
-        <Match when={clientController.lifecycle.loadedOnce()}>
+        <Match when={lifecycle.loadedOnce()}>
           <Layout
             style={{ "flex-grow": 1, "min-height": 0 }}
             onDragOver={(e) => {
@@ -123,19 +105,19 @@ const Interface = (props: { children: JSX.Element }) => {
                 },
               })}
             />
-            <div
-              style={{
-                background: "var(--colours-messaging-message-box-background)",
-                display: "flex",
-                width: "100%",
-                "min-width": 0,
-              }}
+            <Content
+              sidebar={state.layout.getSectionState(
+                LAYOUT_SECTIONS.PRIMARY_SIDEBAR,
+                true,
+              )}
             >
               {props.children}
-            </div>
+            </Content>
           </Layout>
         </Match>
       </Switch>
+
+      <NotificationsWorker />
     </div>
   );
 };
@@ -144,9 +126,8 @@ const Notice = styled("div", {
   base: {
     textAlign: "center",
     fontSize: "0.8em",
-    // margin: "var(--gap-md) var(--gap-md) 0 var(--gap-md)",
-    padding: "var(--gap-md)",
-    background: "var(--colours-testing)",
+    padding: "8px",
+    background: "var(--md-sys-color-surface-container-high)",
     color: "var(--colours-messaging-message-box-foreground)",
     // borderRadius: "var(--borderRadius-md)",
   },
@@ -159,8 +140,30 @@ const Layout = styled("div", {
   base: {
     display: "flex",
     height: "100%",
-    background: "var(--colours-testing)",
+    background: "var(--md-sys-color-surface-container-high)",
     minWidth: 0,
+  },
+});
+
+/**
+ * Main content container
+ */
+const Content = styled("div", {
+  base: {
+    background: "var(--md-sys-color-surface-container-low)",
+
+    display: "flex",
+    width: "100%",
+    minWidth: 0,
+  },
+  variants: {
+    sidebar: {
+      false: {
+        borderTopLeftRadius: "var(--borderRadius-lg)",
+        borderBottomLeftRadius: "var(--borderRadius-lg)",
+        overflow: "hidden",
+      },
+    },
   },
 });
 

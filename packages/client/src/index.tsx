@@ -1,26 +1,15 @@
 /**
  * Configure contexts and render App
  */
-import {
-  JSX,
-  Show,
-  createEffect,
-  createMemo,
-  createResource,
-  createSignal,
-  on,
-  onMount,
-  lazy,
-} from "solid-js";
-import { createStore } from "solid-js/store";
+import { JSX, Show, onMount } from "solid-js";
 import { render } from "solid-js/web";
 
 import { attachDevtoolsOverlay } from "@solid-devtools/overlay";
-import * as i18n from "@solid-primitives/i18n";
 import { Navigate, Route, Router } from "@solidjs/router";
 import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import "mdui/mdui.css";
 
 import FlowCheck from "@revolt/auth/src/flows/FlowCheck";
 import FlowConfirmReset from "@revolt/auth/src/flows/FlowConfirmReset";
@@ -30,71 +19,34 @@ import FlowLogin from "@revolt/auth/src/flows/FlowLogin";
 import FlowResend from "@revolt/auth/src/flows/FlowResend";
 import FlowReset from "@revolt/auth/src/flows/FlowReset";
 import FlowVerify from "@revolt/auth/src/flows/FlowVerify";
-import {
-  I18nContext,
-  dict,
-  fetchLanguage,
-  language,
-  setLanguage,
-} from "@revolt/i18n";
-import { ModalRenderer, modalController } from "@revolt/modal";
-import { state } from "@revolt/state";
-import {
-  ApplyGlobalStyles,
-  FloatingManager,
-  KeybindsProvider,
-  Masks,
-  Titlebar,
-  darkTheme,
-} from "@revolt/ui";
-
+import { ClientContext } from "@revolt/client";
+import { I18nProvider } from "@revolt/i18n";
+import { KeybindContext } from "@revolt/keybinds";
+import { ModalContext, ModalRenderer, useModals } from "@revolt/modal";
+import { VoiceContext } from "@revolt/rtc";
+import { StateContext, SyncWorker, useState } from "@revolt/state";
+import { FloatingManager, LoadTheme, Titlebar } from "@revolt/ui";
 /* @refresh reload */
 import "@revolt/ui/styles";
 
 import AuthPage from "./Auth";
 import Interface from "./Interface";
 import "./index.css";
-import "mdui/mdui.css";
+import { ConfirmDelete } from "./interface/ConfirmDelete";
 import { DevelopmentPage } from "./interface/Development";
 import { Friends } from "./interface/Friends";
 import { HomePage } from "./interface/Home";
 import { ServerHome } from "./interface/ServerHome";
 import { ChannelPage } from "./interface/channels/ChannelPage";
 import "./sentry";
-import { registerKeybindsWithPriority } from "./shared/lib/priorityKeybind";
-import { ConfirmDelete } from "./interface/ConfirmDelete";
 
 attachDevtoolsOverlay();
 
-/** TEMPORARY */
-function MountTheme(props: { children: any }) {
-  const [accent, setAccent] = createSignal("#FF5733");
-  const [darkMode, setDarkMode] = createSignal(false);
-
-  (window as any)._demo_setAccent = setAccent;
-  (window as any)._demo_setDarkMode = setDarkMode;
-
-  const [theme, setTheme] = createStore(darkTheme(accent(), darkMode()));
-
-  createEffect(
-    on(
-      () => [accent(), darkMode()] as [string, boolean],
-      ([accent, darkMode]) => setTheme(darkTheme(accent, darkMode))
-    )
-  );
-
-  return (
-    <>
-      {props.children}
-      <ApplyGlobalStyles theme={theme} />
-    </>
-  );
-}
-/** END TEMPORARY */
-
 /**
  * Redirect PWA start to the last active path
- */ function PWARedirect() {
+ */
+function PWARedirect() {
+  const state = useState();
   return <Navigate href={state.layout.getLastActivePath()} />;
 }
 
@@ -102,50 +54,52 @@ function MountTheme(props: { children: any }) {
  * Open settings and redirect to last active path
  */
 function SettingsRedirect() {
-  onMount(() => modalController.push({ type: "settings", config: "user" }));
+  const { openModal } = useModals();
+
+  onMount(() => openModal({ type: "settings", config: "user" }));
   return <PWARedirect />;
 }
 
-const client = new QueryClient();
-
 function MountContext(props: { children?: JSX.Element }) {
-  const [dictionary] = createResource(language, fetchLanguage, {
-    initialValue: i18n.flatten(dict.en),
-  });
-
-  const t = createMemo(() => i18n.translator(dictionary, i18n.resolveTemplate));
-
+  const state = useState();
   const appWindow = isTauri() ? getCurrentWindow() : null;
 
+  /**
+   * Tanstack Query client
+   */
+  const client = new QueryClient();
+
   return (
-    <I18nContext.Provider value={t()}>
-      <QueryClientProvider client={client}>
-        <Masks />
-        <MountTheme>
-          <KeybindsProvider keybinds={() => state.keybinds.getKeybinds()}>
-            <Show when={window.__TAURI__}>
-              <Titlebar
-                isBuildDev={import.meta.env.DEV}
-                onMinimize={() => appWindow?.minimize?.()}
-                onMaximize={() => appWindow?.toggleMaximize?.()}
-                onClose={() => appWindow?.hide?.()}
-              />
-            </Show>
-            {props.children}
-          </KeybindsProvider>
-          <ModalRenderer />
-          <FloatingManager />
-        </MountTheme>
-      </QueryClientProvider>
-    </I18nContext.Provider>
+    <KeybindContext>
+      <ModalContext>
+        <ClientContext state={state}>
+          <VoiceContext>
+            <I18nProvider>
+              <QueryClientProvider client={client}>
+                <Show when={window.__TAURI__}>
+                  <Titlebar
+                    isBuildDev={import.meta.env.DEV}
+                    onMinimize={() => appWindow?.minimize?.()}
+                    onMaximize={() => appWindow?.toggleMaximize?.()}
+                    onClose={() => appWindow?.hide?.()}
+                  />
+                </Show>
+                {props.children}
+                <ModalRenderer />
+                <FloatingManager />
+              </QueryClientProvider>
+            </I18nProvider>
+          </VoiceContext>
+          <SyncWorker />
+        </ClientContext>
+      </ModalContext>
+    </KeybindContext>
   );
 }
 
-registerKeybindsWithPriority();
-
-state.hydrate().then(() =>
-  render(
-    () => (
+render(
+  () => (
+    <StateContext>
       <Router root={MountContext}>
         <Route path="/login" component={AuthPage as never}>
           <Route path="/delete/:token" component={ConfirmDelete} />
@@ -171,7 +125,9 @@ state.hydrate().then(() =>
           <Route path="/*" component={HomePage} />
         </Route>
       </Router>
-    ),
-    document.getElementById("root") as HTMLElement
-  )
+
+      <LoadTheme />
+    </StateContext>
+  ),
+  document.getElementById("root") as HTMLElement,
 );

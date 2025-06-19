@@ -1,4 +1,4 @@
-import { useTranslation } from "@revolt/i18n";
+import { Trans, useLingui } from "@lingui-solid/solid/macro";
 
 import { createFormModal } from "../form";
 import { PropGenerator } from "../types";
@@ -7,11 +7,11 @@ import { PropGenerator } from "../types";
  * Modal for editing password
  */
 const EditPassword: PropGenerator<"edit_password"> = (props) => {
-  const t = useTranslation();
+  const { t } = useLingui();
 
   return createFormModal({
     modalProps: {
-      title: t("app.special.modals.account.change.password"),
+      title: <Trans>Change your password</Trans>,
     },
     schema: {
       password: "password",
@@ -19,21 +19,21 @@ const EditPassword: PropGenerator<"edit_password"> = (props) => {
     },
     data: {
       password: {
-        field: t("login.password"),
-        placeholder: t("login.enter.password"),
+        field: <Trans>Password</Trans>,
+        placeholder: t`Enter a new password.`,
       },
       currentPassword: {
-        field: t("login.current_password"),
-        placeholder: t("login.enter.current_password"),
+        field: <Trans>Current Password</Trans>,
+        placeholder: t`Enter your current password.`,
       },
     },
     callback: async ({ password, currentPassword }) =>
       void (await props.client.account.changePassword(
         password,
-        currentPassword
+        currentPassword,
       )),
     submit: {
-      children: t("app.special.modals.actions.update"),
+      children: <Trans>Update</Trans>,
     },
   });
 };

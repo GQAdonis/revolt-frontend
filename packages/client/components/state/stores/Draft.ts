@@ -65,6 +65,17 @@ export type TypeDraft = {
    * Unsent messages
    */
   outbox: Record<string, UnsentMessage[]>;
+
+  /**
+   * Current message being edited
+   * or used as a marker to load newest message as editor
+   */
+  editingMessageId?: string | true;
+
+  /**
+   * Value of message currently being edited
+   */
+  editingMessageContent?: string;
 };
 
 /**
@@ -141,7 +152,7 @@ export class Draft extends AbstractStore<"draft", TypeDraft> {
         (x) =>
           typeof x !== "object" ||
           typeof x.id !== "string" ||
-          typeof x.mention !== "boolean"
+          typeof x.mention !== "boolean",
       );
 
     const messageDrafts = input.drafts;
@@ -229,7 +240,7 @@ export class Draft extends AbstractStore<"draft", TypeDraft> {
    */
   setDraft(
     channelId: string,
-    data?: DraftData | ((data: DraftData) => DraftData)
+    data?: DraftData | ((data: DraftData) => DraftData),
   ) {
     if (typeof data === "function") {
       data = data(this.getDraft(channelId));
@@ -304,9 +315,6 @@ export class Draft extends AbstractStore<"draft", TypeDraft> {
 
         // We have to use XMLHttpRequest because modern fetch duplex streams require QUIC or HTTP/2
         const xhr = new XMLHttpRequest();
-        const [authHeader, authHeaderValue] = client.authenticationHeader;
-        xhr.setRequestHeader(authHeader, authHeaderValue);
-        xhr.responseType = "json";
 
         const [success, response] = await new Promise<
           [boolean, { id: string }]
@@ -325,8 +333,12 @@ export class Draft extends AbstractStore<"draft", TypeDraft> {
           xhr.open(
             "POST",
             `${client.configuration!.features.autumn.url}/attachments`,
-            true
+            true,
           );
+
+          const [authHeader, authHeaderValue] = client.authenticationHeader;
+          xhr.setRequestHeader(authHeader, authHeaderValue);
+          xhr.responseType = "json";
 
           xhr.send(body);
         });
@@ -356,8 +368,8 @@ export class Draft extends AbstractStore<"draft", TypeDraft> {
         "outbox",
         channel.id,
         this.getPendingMessages(channel.id).filter(
-          (entry) => entry.idempotencyKey !== idempotencyKey
-        )
+          (entry) => entry.idempotencyKey !== idempotencyKey,
+        ),
       );
     } catch (err) {
       this.set(
@@ -369,8 +381,8 @@ export class Draft extends AbstractStore<"draft", TypeDraft> {
                 ...entry,
                 status: "failed",
               }
-            : entry
-        )
+            : entry,
+        ),
       );
     }
   }
@@ -405,7 +417,7 @@ export class Draft extends AbstractStore<"draft", TypeDraft> {
   retrySend(client: Client, channel: Channel, idempotencyKey: string) {
     batch(() => {
       const draft = this.get().outbox[channel.id].find(
-        (entry) => entry.idempotencyKey === idempotencyKey
+        (entry) => entry.idempotencyKey === idempotencyKey,
       );
       // TODO: validation?
 
@@ -424,8 +436,8 @@ export class Draft extends AbstractStore<"draft", TypeDraft> {
       "outbox",
       channel.id,
       this.getPendingMessages(channel.id).filter(
-        (entry) => entry.idempotencyKey !== idempotencyKey
-      )
+        (entry) => entry.idempotencyKey !== idempotencyKey,
+      ),
     );
   }
 
@@ -492,7 +504,7 @@ export class Draft extends AbstractStore<"draft", TypeDraft> {
     // Ignore if reply already exists
     if (
       this.getDraft(message.channelId).replies?.find(
-        (reply) => reply.id === message.id
+        (reply) => reply.id === message.id,
       )
     )
       return;
@@ -528,7 +540,7 @@ export class Draft extends AbstractStore<"draft", TypeDraft> {
           // Save current mention reply state as new default
           this.state.layout.setSectionState(
             LAYOUT_SECTIONS.MENTION_REPLY,
-            !reply.mention
+            !reply.mention,
           );
 
           return { ...reply, mention: !reply.mention };
@@ -604,6 +616,16 @@ export class Draft extends AbstractStore<"draft", TypeDraft> {
   }
 
   /**
+   * Whether additional elements (attachment/reply) are present
+   * @param channelId Channel ID
+   * @returns Whether information is present
+   */
+  hasAdditionalElements(channelId: string): boolean {
+    const draft = this.getDraft(channelId);
+    return !!(draft.replies?.length || draft.files?.length);
+  }
+
+  /**
    * Remove additional information from a draft (file or reply)
    * @param channelId Channel ID
    * @returns Whether information was removed
@@ -628,5 +650,44 @@ export class Draft extends AbstractStore<"draft", TypeDraft> {
     }
 
     return false;
+  }
+
+  /**
+   * Set message ID
+   * @param message Message ID
+   */
+  setEditingMessage(message: Message | true | undefined) {
+    batch(() => {
+      if (message instanceof Message)
+        this.set("editingMessageContent", message.content);
+      else this.set("editingMessageContent", undefined);
+
+      this.set(
+        "editingMessageId",
+        message instanceof Message ? message.id : message,
+      );
+    });
+  }
+
+  /**
+   * Set editing message content
+   * @param content Content
+   */
+  setEditingMessageContent(content: string) {
+    this.set("editingMessageContent", content);
+  }
+
+  /**
+   * Message that is currently being edited
+   */
+  get editingMessageId() {
+    return this.get().editingMessageId;
+  }
+
+  /**
+   * Message edit content
+   */
+  get editingMessageContent() {
+    return this.get().editingMessageContent;
   }
 }

@@ -1,13 +1,14 @@
 import { Accessor, JSX, Show } from "solid-js";
 
+import { cva } from "styled-system/css";
 import { styled } from "styled-system/jsx";
 
-import { Breadcrumbs, Column, iconSize, typography } from "@revolt/ui";
+import { Breadcrumbs, Button, Text, iconSize } from "@revolt/ui";
 
 import MdClose from "@material-design-icons/svg/outlined/close.svg?component-solid";
 
+import { SettingsList } from "..";
 import { useSettingsNavigation } from "../Settings";
-import { cva } from "styled-system/css";
 
 /**
  * Content portion of the settings menu
@@ -15,7 +16,8 @@ import { cva } from "styled-system/css";
 export function SettingsContent(props: {
   onClose?: () => void;
   children: JSX.Element;
-  title: (key: string) => string;
+  list: Accessor<SettingsList>;
+  title: (ctx: SettingsList, key: string) => string;
   page: Accessor<string | undefined>;
 }) {
   const { navigate } = useSettingsNavigation();
@@ -23,29 +25,28 @@ export function SettingsContent(props: {
   return (
     <div
       use:scrollable={{
-        palette: "settings",
         class: base(),
       }}
     >
       <Show when={props.page()}>
         <InnerContent>
           <InnerColumn>
-            <span class={typography({ class: "title", size: "large" })}>
+            <Text class="title" size="large">
               <Breadcrumbs
                 elements={props.page()!.split("/")}
-                renderElement={(key) => props.title(key)}
+                renderElement={(key) => props.title(props.list(), key)}
                 navigate={(keys) => navigate(keys.join("/"))}
               />
-            </span>
+            </Text>
             {props.children}
           </InnerColumn>
         </InnerContent>
       </Show>
       <Show when={props.onClose}>
         <CloseAction>
-          <CloseAnchor onClick={props.onClose}>
+          <Button size="icon" variant="plain" onPress={props.onClose}>
             <MdClose {...iconSize(28)} />
-          </CloseAnchor>
+          </Button>
         </CloseAction>
       </Show>
     </div>
@@ -61,7 +62,7 @@ const base = cva({
     flex: "1 1 800px",
     flexDirection: "row",
     display: "flex",
-    background: "var(--colours-settings-content-background)",
+    background: "var(--md-sys-color-surface-container-low)",
     borderStartStartRadius: "30px",
     borderEndStartRadius: "30px",
 
@@ -96,36 +97,6 @@ const InnerColumn = styled("div", {
     gap: "var(--gap-md)",
     display: "flex",
     flexDirection: "column",
-  },
-});
-
-/**
- * Button for closing settings page
- */
-const CloseAnchor = styled("a", {
-  base: {
-    width: "36px",
-    height: "36px",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: "var(--borderRadius-full)",
-    border: "3px solid var(--colours-settings-close-anchor)",
-    transition: "var(--transitions-fast) background-color",
-    "& svg": {
-      transition: "var(--transitions-fast) background-color",
-      color: "var(--colours-settings-close-anchor) !important",
-    },
-    "&:hover": {
-      background: "var(--colours-settings-close-anchor)",
-    },
-    "&:hover svg": {
-      color: "var(--colours-settings-close-anchor-hover) !important",
-    },
-    "&:active": {
-      transform: "translateY(2px)",
-    },
   },
 });
 

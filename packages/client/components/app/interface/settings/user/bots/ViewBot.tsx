@@ -1,4 +1,6 @@
-import { useClient } from "@revolt/client";
+import { Trans } from "@lingui-solid/solid/macro";
+import { Bot } from "revolt.js";
+
 import { createProfileResource } from "@revolt/client/resources";
 import {
   CategoryButton,
@@ -12,58 +14,61 @@ import MdPersonAdd from "@material-design-icons/svg/outlined/person_add.svg?comp
 import MdPublic from "@material-design-icons/svg/outlined/public.svg?component-solid";
 import MdToken from "@material-design-icons/svg/outlined/token.svg?component-solid";
 
-import { useSettingsNavigation } from "../../Settings";
 import { UserSummary } from "../account/index";
 import { EditProfileButtons } from "../profile/EditProfileButtons";
 
 /**
  * View a specific bot
  */
-export function ViewBot() {
-  const client = useClient();
-  const { page } = useSettingsNavigation();
-
-  const bot = () => client().bots.get(page()!.substring("bots/".length))!;
-  const profile = createProfileResource(bot().user!);
+export function ViewBot(props: { bot: Bot }) {
+  // `bot` will never change, so we don't care about reactivity here
+  // eslint-disable-next-line solid/reactivity
+  const profile = createProfileResource(props.bot.user!);
 
   return (
     <Column gap="lg">
       <UserSummary
-        user={bot().user!}
+        user={props.bot.user!}
         showBadges
         bannerUrl={profile.data?.animatedBannerURL}
       />
-      <EditProfileButtons user={bot().user!} />
+      <EditProfileButtons user={props.bot.user!} />
       {/* <ErrorBoundary fallback={<>Failed to load profile</>}>
         <Suspense fallback={<>loading...</>}>{profile.data?.content}</Suspense>
       </ErrorBoundary> */}
 
       <CategoryButtonGroup>
         <CategoryButton
-          description="Generate a new token if it gets lost or compromised"
+          description={
+            <Trans>Generate a new token if it gets lost or compromised</Trans>
+          }
           icon={<MdToken {...iconSize(22)} />}
           action="chevron"
         >
-          Reset Token
+          <Trans>Reset Token</Trans>
         </CategoryButton>
         <CategoryButton
-          description="Allow others to add your bot to their servers from Discover"
+          description={
+            <Trans>
+              Allow others to add your bot to their servers from Discover
+            </Trans>
+          }
           icon={<MdPublic {...iconSize(22)} />}
           action="chevron"
         >
-          Submit to Discover
+          <Trans>Submit to Discover</Trans>
         </CategoryButton>
       </CategoryButtonGroup>
 
       <CategoryButtonGroup>
         <CategoryButton icon={<MdLink {...iconSize(22)} />} action="copy">
-          Copy Invite
+          <Trans>Copy Invite</Trans>
         </CategoryButton>
         <CategoryButton
           icon={<MdPersonAdd {...iconSize(22)} />}
           action="chevron"
         >
-          Invite Bot
+          <Trans>Invite Bot</Trans>
         </CategoryButton>
       </CategoryButtonGroup>
     </Column>

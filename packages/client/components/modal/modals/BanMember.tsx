@@ -1,4 +1,5 @@
-import { useTranslation } from "@revolt/i18n";
+import { Trans } from "@lingui-solid/solid/macro";
+
 import { Avatar, Column } from "@revolt/ui";
 
 import { createFormModal } from "../form";
@@ -8,11 +9,9 @@ import { PropGenerator } from "../types";
  * Modal to ban server member
  */
 const BanMember: PropGenerator<"ban_member"> = (props) => {
-  const t = useTranslation();
-
   return createFormModal({
     modalProps: {
-      title: t("app.context_menu.ban_member"),
+      title: <Trans>Ban Member</Trans>,
     },
     schema: {
       member: "custom",
@@ -21,16 +20,14 @@ const BanMember: PropGenerator<"ban_member"> = (props) => {
     data: {
       member: {
         element: (
-          <Column align="center">
+          <Column align>
             <Avatar src={props.member.user?.animatedAvatarURL} size={64} />
-            {t("app.special.modals.prompt.confirm_ban", {
-              name: props.member.user?.username as string,
-            })}
+            <Trans>You are about to ban {props.member.user?.username}</Trans>
           </Column>
         ),
       },
       reason: {
-        field: t("app.special.modals.prompt.confirm_ban_reason"),
+        field: <Trans>Ban Reason</Trans>,
       },
     },
     callback: async ({ reason }) =>
@@ -39,7 +36,7 @@ const BanMember: PropGenerator<"ban_member"> = (props) => {
       })),
     submit: {
       variant: "error",
-      children: t("app.special.modals.actions.ban"),
+      children: <Trans>Ban</Trans>,
     },
   });
 };

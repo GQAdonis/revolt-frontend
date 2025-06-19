@@ -1,67 +1,57 @@
-import { BiRegularX } from "solid-icons/bi";
-import { Show } from "solid-js";
+import { Trans } from "@lingui-solid/solid/macro";
 
-import { useTranslation } from "@revolt/i18n";
+import { useClient } from "@revolt/client";
 import { Markdown } from "@revolt/markdown";
-import { Button, Column, Row, Text } from "@revolt/ui";
+import { Modal2, Modal2Props } from "@revolt/ui";
 
-import { modalController } from "..";
-import { PropGenerator } from "../types";
+import { useModals } from "..";
+import { Modals } from "../types";
 
-/**
- * Modal to display server information
- */
-const ServerInfo: PropGenerator<"server_info"> = (props, onClose) => {
-  const t = useTranslation();
+export function ServerInfoModal(
+  props: Modal2Props & Modals & { type: "server_info" },
+) {
+  const client = useClient();
+  const { openModal } = useModals();
 
-  return {
-    title: (
-      <Row align>
-        <Column grow>
-          <Text class="title">{props.server.name}</Text>
-        </Column>
-        <Button size="icon" variant="plain" onPress={onClose}>
-          <BiRegularX size={36} />
-        </Button>
-      </Row>
-    ),
-    children: (
-      <Show when={props.server.description}>
-        <Markdown content={props.server.description!} />
-      </Show>
-    ),
-    actions: [
-      {
-        // TODO: report server
-        onClick: () => true, //report(server),
-        children: t("app.special.modals.actions.report"),
-        palette: "error",
-      },
-      {
-        onClick: () => {
-          modalController.push({
-            type: "server_identity",
-            member: props.server.member!,
-          });
-          return true;
+  return (
+    <Modal2
+      show={props.show}
+      onClose={props.onClose}
+      title={props.server.name}
+      actions={[
+        {
+          text: <Trans>Settings</Trans>,
+          onClick() {
+            openModal({
+              type: "settings",
+              config: "server",
+              context: props.server,
+            });
+          },
         },
-        children: "Edit Identity",
-        palette: "secondary",
-      },
-      {
-        onClick: () => {
-          modalController.push({
-            type: "settings",
-            config: "server",
-            context: props.server,
-          });
-          return true;
+        {
+          text: <Trans>Edit Identity</Trans>,
+          onClick() {
+            openModal({
+              type: "server_identity",
+              member: props.server.member!,
+            });
+          },
         },
-        children: "Settings",
-        palette: "secondary",
-      },
-    ],
-  };
-};
-
-export default ServerInfo;
+        {
+          text: <Trans>Report</Trans>,
+          onClick() {
+            openModal({
+              type: "report_content",
+              client: client(),
+              target: props.server,
+            });
+          },
+        },
+        { text: <Trans>Close</Trans> },
+      ]}
+    >
+      <Markdown content={props.server.description!} />
+    </Modal2>
+  );
+}

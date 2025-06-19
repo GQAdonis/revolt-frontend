@@ -1,18 +1,20 @@
-import { For, JSX, Match, Show, Switch } from "solid-js";
-import { styled } from "styled-system/jsx";
+import { For, JSX, Match, Switch } from "solid-js";
 
 import { ServerMember } from "revolt.js";
+import { styled } from "styled-system/jsx";
 
 import { CustomEmoji, UnicodeEmoji } from "@revolt/markdown/emoji";
 
 import { AutoCompleteState } from "../../directives";
-import { Avatar, Column, Row } from "../design";
+import { Avatar } from "../design";
+import { Column } from "../layout";
+import { ColouredText } from "../utils";
 
 /**
  * Auto complete popup
  */
 export function AutoComplete(
-  props: Exclude<JSX.Directives["floating"]["autoComplete"], undefined>
+  props: Exclude<JSX.Directives["floating"]["autoComplete"], undefined>,
 ) {
   return (
     <Base>
@@ -25,7 +27,11 @@ export function AutoComplete(
             }
           >
             {(match, index) => (
-              <Entry selected={index() === props.selection()}>
+              <Entry
+                selected={index() === props.selection()}
+                onMouseDown={() => props.select(index())}
+                onMouseEnter={() => props.setSelection(index())}
+              >
                 <Switch
                   fallback={
                     <>
@@ -56,7 +62,11 @@ export function AutoComplete(
             }
           >
             {(match, index) => (
-              <Entry selected={index() === props.selection()}>
+              <Entry
+                selected={index() === props.selection()}
+                onMouseDown={() => props.select(index())}
+                onMouseEnter={() => props.setSelection(index())}
+              >
                 <Avatar src={match.user.animatedAvatarURL} size={24} />{" "}
                 <Name>{match.user.displayName}</Name>
                 {match.user instanceof ServerMember &&
@@ -67,6 +77,31 @@ export function AutoComplete(
                       {match.user.user?.discriminator}
                     </>
                   )}
+              </Entry>
+            )}
+          </For>
+        </Match>
+        <Match when={props.state().matched === "role"}>
+          <For
+            each={
+              (
+                props.state() as AutoCompleteState & {
+                  matched: "role";
+                }
+              ).matches
+            }
+          >
+            {(match, index) => (
+              <Entry
+                selected={index() === props.selection()}
+                onMouseDown={() => props.select(index())}
+                onMouseEnter={() => props.setSelection(index())}
+              >
+                <Name>
+                  <ColouredText colour={match.role.colour}>
+                    {match.role.name}
+                  </ColouredText>
+                </Name>
               </Entry>
             )}
           </For>
@@ -82,7 +117,11 @@ export function AutoComplete(
             }
           >
             {(match, index) => (
-              <Entry selected={index() === props.selection()}>
+              <Entry
+                selected={index() === props.selection()}
+                onMouseDown={() => props.select(index())}
+                onMouseEnter={() => props.setSelection(index())}
+              >
                 <Name>#{match.channel.name}</Name>
               </Entry>
             )}
@@ -135,5 +174,6 @@ const Base = styled(Column, {
     backdropFilter: "var(--effects-blur-md)",
     color: "var(--colours-component-context-menu-foreground)",
     background: "var(--colours-component-context-menu-background)",
+    boxShadow: "0 0 3px var(--colours-component-context-menu-shadow)",
   },
 });

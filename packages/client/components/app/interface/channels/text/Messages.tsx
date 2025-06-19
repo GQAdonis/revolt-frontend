@@ -17,9 +17,11 @@ import {
 
 import isEqual from "lodash.isequal";
 import { Channel, Message as MessageInterface } from "revolt.js";
+import { styled } from "styled-system/jsx";
 
 import { useClient } from "@revolt/client";
-import { dayjs } from "@revolt/i18n";
+import { useTime } from "@revolt/i18n";
+import { useState } from "@revolt/state";
 import {
   BlockedMessage,
   ConversationStart,
@@ -27,7 +29,6 @@ import {
   ListView,
   MessageDivider,
 } from "@revolt/ui";
-import { styled } from "styled-system/jsx";
 
 import { Message } from "./Message";
 
@@ -56,6 +57,11 @@ interface Props {
    * Pending messages to render at the end of the list
    */
   pendingMessages?: JSX.Element;
+
+  /**
+   * Display typing indicator instead of padding
+   */
+  typingIndicator?: JSX.Element;
 
   /**
    * Highlighted message id
@@ -90,6 +96,8 @@ interface Props {
  */
 export function Messages(props: Props) {
   const client = useClient();
+  const state = useState();
+  const dayjs = useTime();
 
   /**
    * Loaded messages
@@ -174,7 +182,7 @@ export function Messages(props: Props) {
    */
   function setMessagesSafely(...messagesArr: MessageInterface[][]) {
     setMessages(
-      messagesArr.flat().toSorted((a, b) => b.id.localeCompare(a.id))
+      messagesArr.flat().toSorted((a, b) => b.id.localeCompare(a.id)),
     );
   }
 
@@ -218,8 +226,8 @@ export function Messages(props: Props) {
           // If the messages fetched include the latest message,
           // then we are at the end and mark the channel as such.
           messages.findIndex(
-            (msg) => msg.id === props.channel.lastMessageId
-          ) !== -1
+            (msg) => msg.id === props.channel.lastMessageId,
+          ) !== -1,
         );
       }
       // Check if we're at the start of the conversation otherwise
@@ -232,7 +240,7 @@ export function Messages(props: Props) {
         const knownIds = new Set(collectedMessages!.map((x) => x.id));
         setMessagesSafely(
           collectedMessages!,
-          messages.filter((x) => !knownIds.has(x.id))
+          messages.filter((x) => !knownIds.has(x.id)),
         );
       }
       // Otherwise just replace the whole list
@@ -288,7 +296,7 @@ export function Messages(props: Props) {
         // Calculate how much we need to cut off the other end
         const tooManyBy = Math.max(
           0,
-          result.messages.length + messages().length - (props.limit ?? 0)
+          result.messages.length + messages().length - (props.limit ?? 0),
         );
 
         // If it's at least one element, we are no longer at the end
@@ -360,7 +368,7 @@ export function Messages(props: Props) {
         // Calculate how much we need to cut off the other end
         const tooManyBy = Math.max(
           0,
-          result.messages.length + messages().length - (props.limit ?? 0)
+          result.messages.length + messages().length - (props.limit ?? 0),
         );
 
         // If it's at least one element, we are no longer at the start
@@ -459,7 +467,7 @@ export function Messages(props: Props) {
         const knownIds = new Set(collectedMessages!.map((x) => x.id));
         setMessagesSafely(
           collectedMessages!,
-          messages.filter((x) => !knownIds.has(x.id))
+          messages.filter((x) => !knownIds.has(x.id)),
         );
 
         // Stop collecting messages
@@ -501,7 +509,7 @@ export function Messages(props: Props) {
      */
     const scrollToNearestMessage = () => {
       const index = messagesWithTail().findIndex(
-        (entry) => entry.t === 0 && entry.message.id === messageId
+        (entry) => entry.t === 0 && entry.message.id === messageId,
       ); // use localeCompare
 
       listRef!.children[index + (atStart() ? 1 : 0)].scrollIntoView({
@@ -565,8 +573,8 @@ export function Messages(props: Props) {
   createEffect(
     on(
       () => props.channel,
-      () => caseInitialLoad(props.highlightedMessageId())
-    )
+      () => caseInitialLoad(props.highlightedMessageId()),
+    ),
   );
 
   /**
@@ -580,8 +588,8 @@ export function Messages(props: Props) {
         if (messageId && messages()) {
           caseJumpToMessage(messageId);
         }
-      }
-    )
+      },
+    ),
   );
 
   /**
@@ -603,7 +611,7 @@ export function Messages(props: Props) {
       messages().find((msg) => msg.id === message.id)
     ) {
       setMessages((messages) =>
-        messages.filter((msg) => msg.id !== message.id)
+        messages.filter((msg) => msg.id !== message.id),
       );
     }
   }
@@ -670,12 +678,20 @@ export function Messages(props: Props) {
 
         // Compare time and properties of messages
         if (
+          // split up different authors
           message.authorId !== next.authorId ||
+          // split up chains which are too far apart
           Math.abs(btime - atime) >= 420000 ||
+          // treat masquerade as a change in author
           !isEqual(message.masquerade, next.masquerade) ||
+          // ensure all system messages render independently
           message.systemMessage ||
           next.systemMessage ||
-          message.replyIds?.length
+          // replies present on current message
+          message.replyIds?.length ||
+          // next message in history has already been read
+          // so there will be a message divider present
+          (next.id.localeCompare(lastReadId) === -1 && !insertedUnreadDivider)
         ) {
           tail = false;
         }
@@ -694,7 +710,7 @@ export function Messages(props: Props) {
           objectCache.get(true) ?? {
             t: 1,
             unread: true,
-          }
+          },
         );
       }
 
@@ -710,7 +726,7 @@ export function Messages(props: Props) {
             t: 0,
             message,
             tail,
-          }
+          },
         );
       }
 
@@ -720,7 +736,7 @@ export function Messages(props: Props) {
           objectCache.get(date) ?? {
             t: 1,
             date: dayjs(date).format("LL"),
-          }
+          },
         );
       }
     });
@@ -754,6 +770,20 @@ export function Messages(props: Props) {
     }
   }
 
+  /**
+   * Select last message for editing if signal is true
+   */
+  createEffect(
+    on(
+      () => state.draft.editingMessageId,
+      (shouldSetEditingMessageId) =>
+        shouldSetEditingMessageId === true &&
+        state.draft.setEditingMessage(
+          messages().find((message) => message.author?.self),
+        ),
+    ),
+  );
+
   return (
     <>
       <ListView
@@ -772,12 +802,19 @@ export function Messages(props: Props) {
                 <Entry
                   {...entry}
                   highlightedMessageId={props.highlightedMessageId}
+                  editingMessageId={
+                    typeof state.draft.editingMessageId === "string"
+                      ? state.draft.editingMessageId
+                      : undefined
+                  }
                 />
               )}
             </For>
             {/* TODO: show (loading icon) OR (load more) */}
-            <Show when={atEnd()}>{props.pendingMessages}</Show>
-            <Padding />
+            <Show when={atEnd()}>
+              {props.pendingMessages}
+              {props.typingIndicator ?? <Padding />}
+            </Show>
           </div>
         </div>
       </ListView>
@@ -798,10 +835,10 @@ const AnchorToEnd = styled("div", {
     zIndex: 30,
     position: "relative",
 
-    "& div": {
-      bottom: 0,
+    "& > div": {
       width: "100%",
       position: "absolute",
+      bottom: "var(--gap-md)",
     },
   },
 });
@@ -841,8 +878,15 @@ type ListEntry =
 /**
  * Render individual list entry
  */
-function Entry(props: ListEntry & Pick<Props, "highlightedMessageId">) {
-  const [local, other] = splitProps(props, ["t", "highlightedMessageId"]);
+function Entry(
+  props: ListEntry &
+    Pick<Props, "highlightedMessageId"> & { editingMessageId?: string },
+) {
+  const [local, other] = splitProps(props, [
+    "t",
+    "highlightedMessageId",
+    "editingMessageId",
+  ]);
 
   return (
     <Switch>
@@ -852,6 +896,10 @@ function Entry(props: ListEntry & Pick<Props, "highlightedMessageId">) {
           highlight={
             (other as ListEntry & { t: 0 }).message.id ===
             local.highlightedMessageId()
+          }
+          editing={
+            (other as ListEntry & { t: 0 }).message.id ===
+            local.editingMessageId
           }
         />
       </Match>

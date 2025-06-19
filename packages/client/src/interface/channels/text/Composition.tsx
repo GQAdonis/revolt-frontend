@@ -4,26 +4,24 @@ import {
   BiSolidHappyBeaming,
   BiSolidSend,
 } from "solid-icons/bi";
-import { For, Match, Show, Switch, onCleanup, onMount } from "solid-js";
+import { For, Match, Show, Switch } from "solid-js";
 
-import { API, Channel } from "revolt.js";
+import { useLingui } from "@lingui-solid/solid/macro";
+import { Channel } from "revolt.js";
 
 import { useClient } from "@revolt/client";
 import { debounce } from "@revolt/common";
-import { useTranslation } from "@revolt/i18n";
-import { modalController } from "@revolt/modal";
-import { state } from "@revolt/state";
+import { Keybind, KeybindAction, createKeybind } from "@revolt/keybinds";
+import { useState } from "@revolt/state";
 import {
   Button,
   CompositionPicker,
   FileCarousel,
   FileDropAnywhereCollector,
   FilePasteCollector,
-  InlineIcon,
   MessageBox,
   MessageReplyPreview,
 } from "@revolt/ui";
-import { registerKeybindWithPriority, unregisterKeybindWithPriority } from "../../../shared/lib/priorityKeybind";
 
 interface Props {
   /**
@@ -46,13 +44,17 @@ const RE_CODE_DELIMITER = new RegExp("^```", "gm");
  * Message composition engine
  */
 export function MessageComposition(props: Props) {
-  const t = useTranslation();
+  const state = useState();
+  const { t } = useLingui();
   const client = useClient();
 
   /**
    * Reference to the message input box
    */
   let ref: HTMLTextAreaElement | undefined;
+
+  createKeybind(KeybindAction.CHAT_JUMP_END, () => ref?.focus());
+  createKeybind(KeybindAction.CHAT_FOCUS_COMPOSITION, () => ref?.focus());
 
   /**
    * Get the draft for the current channel
@@ -148,8 +150,13 @@ export function MessageComposition(props: Props) {
    * @param event Keyboard Event
    */
   function onKeyDownMessageBox(
-    event: KeyboardEvent & { currentTarget: HTMLTextAreaElement }
+    event: KeyboardEvent & { currentTarget: HTMLTextAreaElement },
   ) {
+    if (event.key === "ArrowUp") {
+      state.draft.setEditingMessage(true);
+      return;
+    }
+
     const insideCodeBlock = isInCodeBlock(event.currentTarget.selectionStart);
     const usingBracketIndent =
       (event.ctrlKey || event.metaKey) &&
@@ -268,31 +275,6 @@ export function MessageComposition(props: Props) {
   }
 
   /**
-   * Handle ESC key being pressed
-   * @param event Keyboard Event
-   */
-  function onKeyDown(event: KeyboardEvent) {
-    if (event.key === "Escape") {
-      if (state.draft.popFromDraft(props.channel.id)) {
-        event.preventDefault();
-      }
-    } else if (
-      // Don't take focus from other input elements
-      !(event.target instanceof HTMLInputElement) &&
-      // Don't take focus from modals
-      !modalController.isOpen() &&
-      // Only focus if pasting to allow copying of text elsewhere
-      (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() === "v")
-    ) {
-      ref?.focus();
-    }
-  }
-
-  // Bind onKeyDown to the document
-  onMount(() => registerKeybindWithPriority("Escape", onKeyDown));
-  onCleanup(() => unregisterKeybindWithPriority(onKeyDown));
-
-  /**
    * Handle files being added to the draft.
    * @param files List of files
    */
@@ -304,7 +286,7 @@ export function MessageComposition(props: Props) {
     }
 
     const validFiles = Array.from(files).filter(
-      (file) => file.size <= 20_000_000
+      (file) => file.size <= 20_000_000,
     );
 
     for (const file of validFiles) {
@@ -350,6 +332,12 @@ export function MessageComposition(props: Props) {
 
   return (
     <>
+      <Show when={state.draft.hasAdditionalElements(props.channel.id)}>
+        <Keybind
+          keybind={KeybindAction.CHAT_REMOVE_COMPOSITION_ELEMENT}
+          onPressed={() => state.draft.popFromDraft(props.channel.id)}
+        />
+      </Show>
       <FileCarousel
         files={draft().files ?? []}
         getFile={state.draft.getFile}
@@ -390,18 +378,13 @@ export function MessageComposition(props: Props) {
         content={draft()?.content ?? ""}
         setContent={setContent}
         actionsStart={
-          <Switch fallback={<InlineIcon size="short" />}>
-            <Match
-              when={
-                props.channel.havePermission("UploadFiles") &&
-                state.experiments.isEnabled("file_uploads")
-              }
-            >
-              <InlineIcon size="wide">
-                <Button variant="plain" size="fluid" onPress={addFile}>
+          <Switch fallback={<MessageBox.InlineIcon size="short" />}>
+            <Match when={props.channel.havePermission("UploadFiles")}>
+              <MessageBox.InlineIcon size="wide">
+                <Button variant="plain" size="icon" onPress={addFile}>
                   <BiRegularPlus size={24} />
                 </Button>
-              </InlineIcon>
+              </MessageBox.InlineIcon>
             </Match>
           </Switch>
         }
@@ -410,35 +393,35 @@ export function MessageComposition(props: Props) {
             {(triggerProps) => (
               <>
                 <Show when={state.experiments.isEnabled("gif_picker")}>
-                  <InlineIcon size="normal">
+                  <MessageBox.InlineIcon size="normal">
                     <Button
                       variant="plain"
-                      size="fluid"
+                      size="icon"
                       onPress={triggerProps.onClickGif}
                     >
                       <BiSolidFileGif size={24} />
                     </Button>
-                  </InlineIcon>
+                  </MessageBox.InlineIcon>
                 </Show>
                 <Show when={state.experiments.isEnabled("emoji_picker")}>
-                  <InlineIcon size="normal">
+                  <MessageBox.InlineIcon size="normal">
                     <Button
                       variant="plain"
-                      size="fluid"
+                      size="icon"
                       onPress={triggerProps.onClickEmoji}
                     >
                       <BiSolidHappyBeaming size={24} />
                     </Button>
-                  </InlineIcon>
+                  </MessageBox.InlineIcon>
                 </Show>
                 <Show
                   when={state.settings.getValue("appearance:show_send_button")}
                 >
-                  <InlineIcon size="normal">
-                    <Button variant="plain" size="fluid" onPress={sendMessage}>
+                  <MessageBox.InlineIcon size="normal">
+                    <Button variant="plain" size="icon" onPress={sendMessage}>
                       <BiSolidSend size={24} />
                     </Button>
-                  </InlineIcon>
+                  </MessageBox.InlineIcon>
                 </Show>
 
                 <div ref={triggerProps.ref} />
@@ -448,14 +431,10 @@ export function MessageComposition(props: Props) {
         }
         placeholder={
           props.channel.type === "SavedMessages"
-            ? t("app.main.channel.message_saved")
+            ? t`Save to your notes`
             : props.channel.type === "DirectMessage"
-            ? t("app.main.channel.message_who", {
-                person: props.channel.recipient?.username as string,
-              })
-            : t("app.main.channel.message_where", {
-                channel_name: props.channel.name as string,
-              })
+              ? t`Message ${props.channel.recipient?.username}`
+              : t`Message ${props.channel.name}`
         }
         sendingAllowed={props.channel.havePermission("SendMessage")}
         autoCompleteConfig={{
@@ -464,13 +443,14 @@ export function MessageComposition(props: Props) {
           searchSpace: props.channel.server
             ? {
                 members: client().serverMembers.filter(
-                  (member) => member.id.server === props.channel.serverId
+                  (member) => member.id.server === props.channel.serverId,
                 ),
                 channels: props.channel.server.channels,
+                roles: [...props.channel.server.roles.values()],
               }
             : props.channel.type === "Group"
-            ? { users: props.channel.recipients, channels: [] }
-            : { channels: [] },
+              ? { users: props.channel.recipients, channels: [] }
+              : { channels: [] },
         }}
         updateDraftSelection={(start, end) =>
           state.draft.setSelection(props.channel.id, start, end)

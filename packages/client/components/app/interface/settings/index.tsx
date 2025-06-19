@@ -1,9 +1,9 @@
 import { Accessor, JSX } from "solid-js";
 
+import channel from "./ChannelSettings";
+import server from "./ServerSettings";
 import { Settings, SettingsProps } from "./Settings";
-import channel from "./channel";
-import server from "./server";
-import user from "./user";
+import user from "./UserSettings";
 
 export { Settings } from "./Settings";
 
@@ -16,9 +16,10 @@ export type SettingsConfiguration<T> = {
 
   /**
    * Render the title of the current breadcrumb key
+   * @param ctx Context from settings list
    * @param key Key
    */
-  title: (key: string) => string;
+  title: (ctx: SettingsList, key: string) => string;
 
   /**
    * Render the current settings page
@@ -26,7 +27,7 @@ export type SettingsConfiguration<T> = {
    */
   render: (
     props: { page: Accessor<undefined | string> },
-    context: T
+    context: T,
   ) => JSX.Element;
 };
 
@@ -65,24 +66,3 @@ export const SettingsConfigurations: Record<
   server,
   channel,
 };
-
-/**
- * Render using a specific set of configurations
- * @param props
- * @returns
- */
-export function SettingsUsingConfiguration(
-  props: SettingsProps & { configKey: string }
-) {
-  // eslint-disable-next-line solid/reactivity
-  const config = SettingsConfigurations[props.configKey ?? "client"];
-
-  return (
-    <Settings
-      {...props}
-      render={config.render}
-      title={config.title}
-      list={config.list}
-    />
-  );
-}

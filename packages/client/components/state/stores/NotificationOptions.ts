@@ -50,24 +50,6 @@ export interface TypeNotificationOptions {
 }
 
 /**
- * Create a notification either directly or using service worker
- * @param title Notification Title
- * @param options Notification Options
- * @returns Notification
- */
-async function createNotification(
-  title: string,
-  options: globalThis.NotificationOptions
-) {
-  try {
-    return new Notification(title, options);
-  } catch (err) {
-    const sw = await navigator.serviceWorker.getRegistration();
-    sw?.showNotification(title, options);
-  }
-}
-
-/**
  * Manages the user's notification preferences.
  */
 export class NotificationOptions extends AbstractStore<
@@ -138,7 +120,7 @@ export class NotificationOptions extends AbstractStore<
    */
   computeForServer(server?: Server) {
     return server
-      ? this.get().server[server.id] ?? DEFAULT_SERVER_STATE
+      ? (this.get().server[server.id] ?? DEFAULT_SERVER_STATE)
       : undefined;
   }
 

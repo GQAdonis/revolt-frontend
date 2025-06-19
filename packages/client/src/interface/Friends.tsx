@@ -1,7 +1,6 @@
 import { BiSolidUserDetail } from "solid-icons/bi";
 import {
   Accessor,
-  For,
   JSX,
   Match,
   Show,
@@ -11,19 +10,18 @@ import {
   splitProps,
 } from "solid-js";
 
+import { Trans } from "@lingui-solid/solid/macro";
 import { VirtualContainer } from "@minht11/solid-virtual-container";
 import type { User } from "revolt.js";
 import { styled } from "styled-system/jsx";
 
 import { UserContextMenu } from "@revolt/app";
 import { useClient } from "@revolt/client";
-import { useTranslation } from "@revolt/i18n";
-import { modalController } from "@revolt/modal";
+import { useModals } from "@revolt/modal";
 import {
   Avatar,
   Badge,
   Button,
-  CategoryButton,
   Deferred,
   Header,
   List,
@@ -32,9 +30,8 @@ import {
   NavigationRail,
   NavigationRailItem,
   OverflowingText,
-  Tabs,
-  Typography,
-  UserStatusGraphic,
+  UserStatus,
+  main,
 } from "@revolt/ui";
 
 import MdAdd from "@material-design-icons/svg/outlined/add.svg?component-solid";
@@ -53,32 +50,20 @@ const Base = styled("div", {
     width: "100%",
     display: "flex",
     flexDirection: "column",
+
     "& .FriendsList": {
+      height: "100%",
       paddingInline: "var(--gap-lg)",
     },
   },
 });
-
-// const ListBase = styled("div", {
-//   base: {
-//     "&:not(:first-child)": {
-//       paddingTop: "var(--gap-lg)",
-//     },
-//   },
-// });
-
-/**
- * Typed accessor for lists
- */
-type FriendLists = Accessor<{
-  [key in "online" | "offline" | "incoming" | "outgoing" | "blocked"]: User[];
-}>;
 
 /**
  * Friends menu
  */
 export function Friends() {
   const client = useClient();
+  const { openModal } = useModals();
 
   /**
    * Reference to the parent scroll container
@@ -98,20 +83,20 @@ export function Friends() {
 
     const friends = list
       .filter((user) => user.relationship === "Friend")
-      .sort((a, b) => a.username.localeCompare(b.username));
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
 
     return {
       friends,
       online: friends.filter((user) => user.online),
       incoming: list
         .filter((user) => user.relationship === "Incoming")
-        .sort((a, b) => a.username.localeCompare(b.username)),
+        .sort((a, b) => a.displayName.localeCompare(b.displayName)),
       outgoing: list
         .filter((user) => user.relationship === "Outgoing")
-        .sort((a, b) => a.username.localeCompare(b.username)),
+        .sort((a, b) => a.displayName.localeCompare(b.displayName)),
       blocked: list
         .filter((user) => user.relationship === "Blocked")
-        .sort((a, b) => a.username.localeCompare(b.username)),
+        .sort((a, b) => a.displayName.localeCompare(b.displayName)),
     };
   });
 
@@ -123,93 +108,97 @@ export function Friends() {
   const [page, setPage] = createSignal("online");
 
   return (
-    // TODO: i18n
     <Base>
       <Header placement="primary">
         <HeaderIcon>
           <BiSolidUserDetail size={24} />
         </HeaderIcon>
-        Friends
+        <Trans>Friends</Trans>
       </Header>
 
-      <div
-        style={{
-          position: "relative",
-          "min-height": 0,
-        }}
-      >
-        <NavigationRail contained value={page} onValue={setPage}>
-          <div style={{ "margin-top": "6px", "margin-bottom": "12px" }}>
-            <Button
-              size="fab"
-              onPress={() =>
-                modalController.push({ type: "add_friend", client: client() })
-              }
-            >
-              <MdAdd />
-            </Button>
-          </div>
+      <main class={main()}>
+        <div
+          style={{
+            position: "relative",
+            "min-height": 0,
+          }}
+        >
+          <NavigationRail contained value={page} onValue={setPage}>
+            <div style={{ "margin-top": "6px", "margin-bottom": "12px" }}>
+              <Button
+                size="fab"
+                onPress={() =>
+                  openModal({
+                    type: "add_friend",
+                    client: client(),
+                  })
+                }
+              >
+                <MdAdd />
+              </Button>
+            </div>
 
-          <NavigationRailItem icon={<MdWavingHand />} value="online">
-            Online
-          </NavigationRailItem>
-          <NavigationRailItem icon={<MdGroup />} value="all">
-            All
-          </NavigationRailItem>
-          <NavigationRailItem icon={<MdNotifications />} value="pending">
-            Pending
-            <Show when={pending()}>
-              <Badge slot="badge" variant="large">
-                {pending()}
-              </Badge>
-            </Show>
-          </NavigationRailItem>
-          <NavigationRailItem icon={<MdBlock />} value="blocked">
-            Blocked
-          </NavigationRailItem>
-        </NavigationRail>
+            <NavigationRailItem icon={<MdWavingHand />} value="online">
+              <Trans>Online</Trans>
+            </NavigationRailItem>
+            <NavigationRailItem icon={<MdGroup />} value="all">
+              <Trans>All</Trans>
+            </NavigationRailItem>
+            <NavigationRailItem icon={<MdNotifications />} value="pending">
+              <Trans>Pending</Trans>
+              <Show when={pending()}>
+                <Badge slot="badge" variant="large">
+                  {pending()}
+                </Badge>
+              </Show>
+            </NavigationRailItem>
+            <NavigationRailItem icon={<MdBlock />} value="blocked">
+              <Trans>Blocked</Trans>
+            </NavigationRailItem>
+          </NavigationRail>
 
-        <Deferred>
-          <div class="FriendsList" ref={scrollTargetElement} use:scrollable>
-            <Switch
-              fallback={
-                <People
-                  title="Online"
-                  users={lists().online}
-                  scrollTargetElement={targetSignal}
-                />
-              }
-            >
-              <Match when={page() === "all"}>
-                <People
-                  title="All"
-                  users={lists().friends}
-                  scrollTargetElement={targetSignal}
-                />
-              </Match>
-              <Match when={page() === "pending"}>
-                <People
-                  title="Incoming"
-                  users={lists().incoming}
-                  scrollTargetElement={targetSignal}
-                />
-                <People
-                  title="Outgoing"
-                  users={lists().outgoing}
-                  scrollTargetElement={targetSignal}
-                />
-              </Match>
-              <Match when={page() === "blocked"}>
-                <People
-                  title="Blocked"
-                  users={lists().blocked}
-                  scrollTargetElement={targetSignal}
-                />
-              </Match>
-            </Switch>
-          </div>
-        </Deferred>
-      </div>
+          <Deferred>
+            <div class="FriendsList" ref={scrollTargetElement} use:scrollable>
+              <Switch
+                fallback={
+                  <People
+                    title="Online"
+                    users={lists().online}
+                    scrollTargetElement={targetSignal}
+                  />
+                }
+              >
+                <Match when={page() === "all"}>
+                  <People
+                    title="All"
+                    users={lists().friends}
+                    scrollTargetElement={targetSignal}
+                  />
+                </Match>
+                <Match when={page() === "pending"}>
+                  <People
+                    title="Incoming"
+                    users={lists().incoming}
+                    scrollTargetElement={targetSignal}
+                  />
+                  <People
+                    title="Outgoing"
+                    users={lists().outgoing}
+                    scrollTargetElement={targetSignal}
+                  />
+                </Match>
+                <Match when={page() === "blocked"}>
+                  <People
+                    title="Blocked"
+                    users={lists().blocked}
+                    scrollTargetElement={targetSignal}
+                  />
+                </Match>
+              </Switch>
+            </div>
+          </Deferred>
+        </div>
+      </main>
     </Base>
   );
 }
@@ -229,7 +218,9 @@ function People(props: {
       </ListSubheader>
 
       <Show when={props.users.length === 0}>
-        <ListItem disabled>Nobody here right now!</ListItem>
+        <ListItem disabled>
+          <Trans>Nobody here right now!</Trans>
+        </ListItem>
       </Show>
 
       <VirtualContainer
@@ -275,8 +266,9 @@ function Entry(
   props: { user: User } & Omit<
     JSX.AnchorHTMLAttributes<HTMLAnchorElement>,
     "href"
-  >
+  >,
 ) {
+  const { openModal } = useModals();
   const [local, remote] = splitProps(props, ["user"]);
 
   return (
@@ -285,6 +277,7 @@ function Entry(
       use:floating={{
         contextMenu: () => <UserContextMenu user={local.user} />,
       }}
+      onClick={() => openModal({ type: "user_profile", user: local.user })}
     >
       <ListItem>
         <Avatar
@@ -296,13 +289,13 @@ function Entry(
           }
           overlay={
             <Show when={props.user.relationship === "Friend"}>
-              <UserStatusGraphic
+              <UserStatus.Graphic
                 status={props.user.status?.presence ?? "Online"}
               />
             </Show>
           }
         />
-        <OverflowingText>{local.user.username}</OverflowingText>
+        <OverflowingText>{local.user.displayName}</OverflowingText>
       </ListItem>
     </a>
   );
@@ -320,69 +313,3 @@ const Avatars = styled("div", {
     },
   },
 });
-
-/**
- * Pending requests button
- */
-function PendingRequests(props: { lists: FriendLists }) {
-  const t = useTranslation();
-
-  /**
-   * Shorthand for generating incoming list
-   * @returns List of users
-   */
-  const incoming = () => props.lists().incoming;
-
-  /**
-   * Generate pending requests description
-   * @returns Localised string
-   */
-  const description = () => {
-    const list = incoming();
-    const length = list.length;
-
-    if (length === 1) {
-      return t("app.special.friends.from.single", { user: list[0].username });
-    } else if (length <= 3) {
-      return t("app.special.friends.from.multiple", {
-        userlist: list
-          .slice(0, 2)
-          .map((user) => user.username)
-          .join(", "),
-        user: list.slice(-1)[0].username,
-      });
-    } else {
-      return t("app.special.friends.from.several", {
-        userlist: list
-          .slice(0, 3)
-          .map((user) => user.username)
-          .join(", "),
-        count: (length - 3).toString(),
-      });
-    }
-  };
-
-  return (
-    <Show when={incoming().length}>
-      <CategoryButton
-        action="chevron"
-        icon={
-          <Avatars>
-            <For each={incoming().slice(0, 3)}>
-              {(user, index) => (
-                <Avatar
-                  src={user.animatedAvatarURL}
-                  size={64}
-                  holepunch={index() == 2 ? "none" : "overlap"}
-                />
-              )}
-            </For>
-          </Avatars>
-        }
-        description={description()}
-      >
-        {incoming().length} Pending Requests
-      </CategoryButton>
-    </Show>
-  );
-}

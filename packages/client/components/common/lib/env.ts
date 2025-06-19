@@ -33,7 +33,7 @@ export default {
   DEFAULT_MEDIA_URL:
     (import.meta.env.DEV ? import.meta.env.VITE_DEV_MEDIA_URL : undefined) ??
     (import.meta.env.VITE_MEDIA_URL as string) ??
-    "https://autumn.revolt.chat",
+    "https://cdn.revoltusercontent.com",
   /**
    * What proxy server to connect to by default.
    */
@@ -53,6 +53,10 @@ export default {
    * Maximum number of attachments a message can have
    */
   MAX_ATTACHMENTS: (import.meta.env.VITE_CFG_MAX_ATTACHMENTS as number) ?? 5,
+  /**
+   * Maximum number of emoji a server can have
+   */
+  MAX_EMOJI: (import.meta.env.VITE_CFG_MAX_EMOJI as number) ?? 100,
   /**
    * Session ID to set during development.
    */
